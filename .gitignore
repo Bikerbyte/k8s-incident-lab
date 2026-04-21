@@ -1,0 +1,21 @@
+# Local editor and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Local environment and secrets
+.env
+.env.*
+*.kubeconfig
+kubeconfig
+
+# Runtime logs and temp files
+*.log
+tmp/
+temp/
+
+# Generated archives
+*.tar
+*.tar.gz
+*.zip
