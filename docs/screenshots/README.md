@@ -2,6 +2,12 @@
 
 Use this folder for example screenshots from real lab runs.
 
+Current repo screenshots:
+
+- `grafana-normal.png`
+- `readiness-failure.png`
+- `high-error-rate.png`
+
 ## Recommended Files
 
 | File | When to capture | What should be visible |
@@ -20,6 +26,18 @@ Before taking screenshots:
 ```bash
 scripts/status.sh
 scripts/port-forward.sh
+```
+
+You can also capture the current Grafana dashboard with:
+
+```bash
+scripts/capture-grafana-screenshot.sh docs/screenshots/grafana-normal.png
+```
+
+Change the time range by setting `TIME_RANGE`:
+
+```bash
+TIME_RANGE=now-5m scripts/capture-grafana-screenshot.sh docs/screenshots/high-error-rate.png
 ```
 
 Open Grafana:
