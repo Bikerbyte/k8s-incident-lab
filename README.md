@@ -96,6 +96,14 @@ Open the dashboard:
 Incident Lab / Podinfo Overview
 ```
 
+Grafana usage guide:
+
+- [docs/grafana-guide.md](docs/grafana-guide.md)
+
+Troubleshooting:
+
+- [docs/troubleshooting.md](docs/troubleshooting.md)
+
 ## Validate the App
 
 Port-forward Podinfo:

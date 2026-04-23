@@ -24,6 +24,326 @@ data:
           },
           "fieldConfig": {
             "defaults": {
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 2
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 0,
+            "y": 0
+          },
+          "id": 10,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "expr": "kube_deployment_status_replicas_ready{namespace=\"incident-lab\",deployment=\"podinfo\"}",
+              "legendFormat": "ready",
+              "refId": "A"
+            }
+          ],
+          "title": "Ready Replicas",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 6,
+            "y": 0
+          },
+          "id": 11,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "expr": "sum(kube_pod_status_ready{namespace=\"incident-lab\",condition=\"false\"} == 1) or on() vector(0)",
+              "legendFormat": "unready",
+              "refId": "A"
+            }
+          ],
+          "title": "Unready Pods",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 1
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 12,
+            "y": 0
+          },
+          "id": 12,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "expr": "kube_deployment_status_replicas_unavailable{namespace=\"incident-lab\",deployment=\"podinfo\"} or on() vector(0)",
+              "legendFormat": "unavailable",
+              "refId": "A"
+            }
+          ],
+          "title": "Unavailable Replicas",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "green",
+                    "value": 1
+                  }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 4,
+            "w": 6,
+            "x": 18,
+            "y": 0
+          },
+          "id": 13,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "center",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "expr": "sum(kube_endpointslice_endpoints{namespace=\"incident-lab\",targetref_kind=\"Pod\",ready=\"true\"})",
+              "legendFormat": "ready endpoints",
+              "refId": "A"
+            }
+          ],
+          "title": "Ready Service Endpoints",
+          "type": "stat"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 4
+          },
+          "id": 3,
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "expr": "kube_deployment_status_replicas{namespace=\"incident-lab\",deployment=\"podinfo\"}",
+              "legendFormat": "total replicas",
+              "refId": "A"
+            },
+            {
+              "expr": "kube_deployment_status_replicas_ready{namespace=\"incident-lab\",deployment=\"podinfo\"}",
+              "legendFormat": "ready replicas",
+              "refId": "B"
+            },
+            {
+              "expr": "kube_deployment_status_replicas_unavailable{namespace=\"incident-lab\",deployment=\"podinfo\"}",
+              "legendFormat": "unavailable replicas",
+              "refId": "C"
+            },
+            {
+              "expr": "kube_deployment_status_replicas_updated{namespace=\"incident-lab\",deployment=\"podinfo\"}",
+              "legendFormat": "updated replicas",
+              "refId": "D"
+            }
+          ],
+          "title": "Deployment Replica State",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 4
+          },
+          "id": 14,
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "expr": "kube_pod_status_ready{namespace=\"incident-lab\",condition=\"true\"}",
+              "legendFormat": "{{pod}} ready",
+              "refId": "A"
+            },
+            {
+              "expr": "kube_pod_status_ready{namespace=\"incident-lab\",condition=\"false\"}",
+              "legendFormat": "{{pod}} not ready",
+              "refId": "B"
+            }
+          ],
+          "title": "Pod Readiness",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
               "unit": "reqps"
             },
             "overrides": []
@@ -32,7 +352,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 0
+            "y": 12
           },
           "id": 1,
           "options": {
@@ -70,7 +390,7 @@ data:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 0
+            "y": 12
           },
           "id": 2,
           "options": {
@@ -106,47 +426,9 @@ data:
           },
           "gridPos": {
             "h": 8,
-            "w": 12,
+            "w": 24,
             "x": 0,
-            "y": 8
-          },
-          "id": 3,
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom"
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "expr": "kube_deployment_status_replicas_ready{namespace=\"incident-lab\",deployment=\"podinfo\"}",
-              "legendFormat": "ready replicas",
-              "refId": "A"
-            }
-          ],
-          "title": "Ready Replicas",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "short"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 8
+            "y": 20
           },
           "id": 4,
           "options": {
@@ -188,6 +470,6 @@ data:
       "timezone": "",
       "title": "Incident Lab / Podinfo Overview",
       "uid": "incident-lab-podinfo",
-      "version": 1,
+      "version": 2,
       "weekStart": ""
     }
