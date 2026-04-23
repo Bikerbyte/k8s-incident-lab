@@ -69,6 +69,12 @@ Install monitoring and logging:
 scripts/install-monitoring.sh
 ```
 
+Check the lab status:
+
+```bash
+scripts/status.sh
+```
+
 On Windows PowerShell, use the matching `.ps1` scripts:
 
 ```powershell
@@ -79,7 +85,7 @@ On Windows PowerShell, use the matching `.ps1` scripts:
 Open Grafana:
 
 ```bash
-kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
+scripts/port-forward.sh
 ```
 
 Then open `http://localhost:3000`.
@@ -104,12 +110,16 @@ Troubleshooting:
 
 - [docs/troubleshooting.md](docs/troubleshooting.md)
 
+Screenshot guide:
+
+- [docs/screenshots/README.md](docs/screenshots/README.md)
+
 ## Validate the App
 
 Port-forward Podinfo:
 
 ```bash
-kubectl -n incident-lab port-forward svc/podinfo 9898:9898
+scripts/port-forward.sh
 ```
 
 Test it:

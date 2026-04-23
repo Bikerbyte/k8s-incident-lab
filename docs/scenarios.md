@@ -1,71 +1,42 @@
 # Scenarios
 
-The MVP contains three repeatable incident scenarios.
+The lab contains three repeatable incident scenarios. Each scenario has a short guide under `scenarios/` and a runbook under `runbooks/`.
 
-## Readiness Probe Failure
-
-Purpose:
-
-Show that a pod can be running but removed from Service traffic because readiness checks fail.
-
-Trigger:
+Before running any scenario:
 
 ```bash
-scripts/trigger-readiness-failure.sh
+scripts/status.sh
+scripts/port-forward.sh
 ```
 
-Primary signals:
+Open Grafana:
 
-- Pod ready state
-- Service endpoints
-- Kubernetes events
-- Ready replicas in Grafana
+```text
+http://localhost:3000
+```
 
-Runbook:
+Dashboard:
+
+```text
+Incident Lab / Podinfo Overview
+```
+
+## Scenario Index
+
+| Scenario | What it teaches | Trigger | Primary evidence |
+| --- | --- | --- | --- |
+| [Readiness Probe Failure](../scenarios/readiness-failure/README.md) | Running is not the same as Ready | `scripts/trigger-readiness-failure.sh` | Unready Pods, Unavailable Replicas, Kubernetes events |
+| [High Error Rate](../scenarios/high-error-rate/README.md) | Kubernetes can be healthy while the app returns 500s | `scripts/generate-errors.sh` | Error Ratio, Request Rate, Loki logs |
+| [Pod Self-Healing](../scenarios/pod-self-healing/README.md) | Deployments recreate deleted pods | `scripts/trigger-pod-self-healing.sh` | Pod lifecycle events, replacement pod, ready replica recovery |
+
+## Runbooks
 
 - [Readiness Probe Failure](../runbooks/readiness-failure.md)
-
-## High Error Rate
-
-Purpose:
-
-Show that an app can remain healthy at the Kubernetes level while returning HTTP 500 responses.
-
-Trigger:
-
-```bash
-scripts/generate-errors.sh
-```
-
-Primary signals:
-
-- Request rate
-- Error ratio
-- App logs in Loki
-- Pod status remains ready
-
-Runbook:
-
 - [High Error Rate](../runbooks/high-error-rate.md)
-
-## Pod Self-healing
-
-Purpose:
-
-Show that the Deployment controller recreates a deleted pod.
-
-Trigger:
-
-```bash
-scripts/trigger-pod-self-healing.sh
-```
-
-Primary signals:
-
-- Pod lifecycle events
-- Replacement pod creation
-- Deployment ready replicas
-
-Runbook:
-
 - [Pod Self-healing](../runbooks/pod-self-healing.md)
+
+## Recommended Practice Order
+
+1. Run **Pod Self-Healing** to understand the Deployment controller.
+2. Run **Readiness Probe Failure** to understand Ready vs Running.
+3. Run **High Error Rate** to practice app-level incidents where Kubernetes still looks healthy.
