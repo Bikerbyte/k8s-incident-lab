@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>K8s Incident Lab Console</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <div class="page">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Local Lab Console</p>
+          <h1>K8s Incident Lab</h1>
+        </div>
+        <div class="topbar-actions">
+          <button id="refreshStatusButton" class="button button-secondary">Refresh Status</button>
+          <button id="pollJobsButton" class="button button-secondary">Refresh Jobs</button>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="band">
+          <div class="section-heading">
+            <h2>Overview</h2>
+            <p id="statusTimestamp">Loading current lab state...</p>
+          </div>
+          <div id="overviewGrid" class="metric-grid"></div>
+        </section>
+
+        <section class="band split">
+          <div class="column">
+            <div class="section-heading">
+              <h2>Actions</h2>
+              <p>Run the existing scripts without leaving the browser.</p>
+            </div>
+            <div id="actionsGrid" class="action-grid"></div>
+          </div>
+
+          <div class="column">
+            <div class="section-heading">
+              <h2>Job Output</h2>
+              <p id="jobLabel">Pick an action to start a job.</p>
+            </div>
+            <div class="command-surface">
+              <div id="jobMeta" class="job-meta">No job selected.</div>
+              <pre id="jobOutput" class="job-output">Waiting for output...</pre>
+            </div>
+          </div>
+        </section>
+
+        <section class="band split">
+          <div class="column">
+            <div class="section-heading">
+              <h2>Cluster Resources</h2>
+              <p>Namespace snapshots from the current cluster.</p>
+            </div>
+            <div class="resource-stack">
+              <div class="resource-block">
+                <h3>App Namespace</h3>
+                <div id="appSummary"></div>
+              </div>
+              <div class="resource-block">
+                <h3>Monitoring Namespace</h3>
+                <div id="monitoringSummary"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="column">
+            <div class="section-heading">
+              <h2>Examples</h2>
+              <p>Reference screenshots from real runs.</p>
+            </div>
+            <div id="screenshotsGrid" class="screenshot-grid"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

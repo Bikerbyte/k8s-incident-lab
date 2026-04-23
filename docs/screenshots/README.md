@@ -4,6 +4,7 @@ Use this folder for example screenshots from real lab runs.
 
 Current repo screenshots:
 
+- `lab-console.png`
 - `grafana-normal.png`
 - `readiness-failure.png`
 - `high-error-rate.png`
@@ -12,6 +13,7 @@ Current repo screenshots:
 
 | File | When to capture | What should be visible |
 | --- | --- | --- |
+| `lab-console.png` | After the local console is running | Overview cards, action buttons, cluster tables, example screenshots |
 | `grafana-normal.png` | After deploy and monitoring are healthy | Ready Replicas `2`, Unready Pods `0`, Error Ratio near `0` |
 | `readiness-failure.png` | After `scripts/trigger-readiness-failure.sh` | Unready Pods `1`, Unavailable Replicas `1`, Ready Service Endpoints still available |
 | `readiness-events.png` | During readiness failure | `kubectl get events` showing readiness probe `404` |

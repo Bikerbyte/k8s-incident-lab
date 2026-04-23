@@ -75,6 +75,14 @@ Check the lab status:
 scripts/status.sh
 ```
 
+Run the local lab console:
+
+```bash
+scripts/run-console.sh
+```
+
+Then open the printed local URL in your browser.
+
 On Windows PowerShell, use the matching `.ps1` scripts:
 
 ```powershell
