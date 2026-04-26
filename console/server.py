@@ -4,11 +4,13 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import re
 import socket
 import subprocess
 import threading
 import time
 import urllib.parse
+from html import escape
 from dataclasses import dataclass
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -46,8 +48,26 @@ ACTIONS: dict[str, Action] = {
     "open-local-access": Action(
         slug="open-local-access",
         label="Open Local Access",
-        description="Start Grafana and Podinfo port-forwards for localhost access.",
+        description="Start Grafana, Prometheus, and Podinfo port-forwards.",
         command=["bash", "scripts/port-forward.sh"],
+    ),
+    "stop-local-access": Action(
+        slug="stop-local-access",
+        label="Stop Local Access",
+        description="Stop Grafana, Prometheus, and Podinfo port-forwards.",
+        command=["bash", "scripts/stop-port-forward.sh"],
+    ),
+    "check-lab-status": Action(
+        slug="check-lab-status",
+        label="Check Lab Status",
+        description="Print tool, cluster, workload, and localhost access status.",
+        command=["bash", "scripts/status.sh"],
+    ),
+    "show-alerts": Action(
+        slug="show-alerts",
+        label="Show Alerts",
+        description="Query Prometheus for current incident lab alert states.",
+        command=["bash", "scripts/show-alerts.sh"],
     ),
     "trigger-readiness-failure": Action(
         slug="trigger-readiness-failure",
@@ -95,14 +115,26 @@ JOB_ORDER: list[str] = []
 
 
 def run_command(command: list[str], timeout: int = 20) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        command,
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=False,
-    )
+    try:
+        return subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        stdout = exc.stdout or ""
+        stderr = exc.stderr or ""
+        if isinstance(stdout, bytes):
+            stdout = stdout.decode(errors="replace")
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode(errors="replace")
+        stderr = f"{stderr}\nCommand timed out after {timeout} seconds.".strip()
+        return subprocess.CompletedProcess(command, 124, stdout, stderr)
+    except OSError as exc:
+        return subprocess.CompletedProcess(command, 127, "", str(exc))
 
 
 def command_output(command: list[str], timeout: int = 20) -> str:
@@ -349,6 +381,147 @@ def latest_jobs() -> list[dict[str, Any]]:
         return [JOBS[job_id].copy() for job_id in reversed(JOB_ORDER[-8:])]
 
 
+def inline_markdown(text: str) -> str:
+    escaped = escape(text)
+    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
+    escaped = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', escaped)
+    return escaped
+
+
+def table_html(lines: list[str]) -> str:
+    rows = [[cell.strip() for cell in line.strip().strip("|").split("|")] for line in lines]
+    if len(rows) < 2:
+        return ""
+    header = rows[0]
+    body = rows[2:]
+    thead = "<thead><tr>" + "".join(f"<th>{inline_markdown(cell)}</th>" for cell in header) + "</tr></thead>"
+    tbody_rows = []
+    for row in body:
+        padded = row + [""] * max(0, len(header) - len(row))
+        cells = "".join(f"<td>{inline_markdown(cell)}</td>" for cell in padded[: len(header)])
+        tbody_rows.append(f"<tr>{cells}</tr>")
+    return f"<table>{thead}<tbody>{''.join(tbody_rows)}</tbody></table>"
+
+
+def render_markdown(markdown: str) -> str:
+    lines = markdown.splitlines()
+    output: list[str] = []
+    paragraph: list[str] = []
+    list_items: list[str] = []
+    code_lines: list[str] = []
+    table_lines: list[str] = []
+    in_code = False
+
+    def flush_paragraph() -> None:
+        if paragraph:
+            output.append(f"<p>{inline_markdown(' '.join(paragraph))}</p>")
+            paragraph.clear()
+
+    def flush_list() -> None:
+        if list_items:
+            output.append("<ul>" + "".join(f"<li>{item}</li>" for item in list_items) + "</ul>")
+            list_items.clear()
+
+    def flush_table() -> None:
+        if table_lines:
+            html = table_html(table_lines)
+            if html:
+                output.append(html)
+            table_lines.clear()
+
+    for raw_line in lines:
+        line = raw_line.rstrip()
+        stripped = line.strip()
+
+        if stripped.startswith("```"):
+            if in_code:
+                output.append(f"<pre><code>{escape(chr(10).join(code_lines))}</code></pre>")
+                code_lines.clear()
+                in_code = False
+            else:
+                flush_paragraph()
+                flush_list()
+                flush_table()
+                in_code = True
+            continue
+
+        if in_code:
+            code_lines.append(line)
+            continue
+
+        if not stripped:
+            flush_paragraph()
+            flush_list()
+            flush_table()
+            continue
+
+        if stripped.startswith("|") and stripped.endswith("|"):
+            flush_paragraph()
+            flush_list()
+            table_lines.append(stripped)
+            continue
+
+        flush_table()
+
+        heading = re.match(r"^(#{1,6})\s+(.+)$", stripped)
+        if heading:
+            flush_paragraph()
+            flush_list()
+            level = len(heading.group(1))
+            output.append(f"<h{level}>{inline_markdown(heading.group(2))}</h{level}>")
+            continue
+
+        unordered = re.match(r"^[-*]\s+(.+)$", stripped)
+        if unordered:
+            flush_paragraph()
+            list_items.append(inline_markdown(unordered.group(1)))
+            continue
+
+        ordered = re.match(r"^\d+\.\s+(.+)$", stripped)
+        if ordered:
+            flush_paragraph()
+            list_items.append(inline_markdown(ordered.group(1)))
+            continue
+
+        flush_list()
+        paragraph.append(stripped)
+
+    flush_paragraph()
+    flush_list()
+    flush_table()
+    if in_code:
+        output.append(f"<pre><code>{escape(chr(10).join(code_lines))}</code></pre>")
+    return "\n".join(output)
+
+
+def markdown_page(path: Path) -> bytes:
+    markdown = path.read_text(encoding="utf-8")
+    title = path.stem.replace("-", " ").title()
+    body = render_markdown(markdown)
+    html = f"""<!doctype html>
+<html lang="en" data-theme="night">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{escape(title)} | K8s Incident Lab</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <main class="markdown-page">
+      <nav class="markdown-nav">
+        <a class="button" href="/">Back to Console</a>
+        <a class="button" href="{escape('/' + path.relative_to(REPO_ROOT).as_posix())}?raw=1">Raw Markdown</a>
+      </nav>
+      <article class="markdown-body">
+        {body}
+      </article>
+    </main>
+  </body>
+</html>
+"""
+    return html.encode("utf-8")
+
+
 class ConsoleHandler(BaseHTTPRequestHandler):
     server_version = "LabConsole/0.1"
 
@@ -365,6 +538,13 @@ class ConsoleHandler(BaseHTTPRequestHandler):
         if path.startswith("/screenshots/"):
             target = SCREENSHOT_DIR / path.removeprefix("/screenshots/")
             self.serve_file(target)
+            return
+        if path.startswith("/docs/") or path.startswith("/runbooks/"):
+            target = REPO_ROOT / path.removeprefix("/")
+            if parsed.query == "raw=1":
+                self.serve_file(target, "text/markdown; charset=utf-8")
+            else:
+                self.serve_markdown(target)
             return
         if path == "/api/status":
             self.send_json(status_payload())
@@ -400,6 +580,11 @@ class ConsoleHandler(BaseHTTPRequestHandler):
         return
 
     def serve_file(self, path: Path, content_type: str | None = None) -> None:
+        try:
+            path.resolve().relative_to(REPO_ROOT)
+        except ValueError:
+            self.send_error(HTTPStatus.NOT_FOUND, "Missing file")
+            return
         if not path.exists() or not path.is_file():
             self.send_error(HTTPStatus.NOT_FOUND, "Missing file")
             return
@@ -409,7 +594,29 @@ class ConsoleHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", guessed_type)
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            return
+
+    def serve_markdown(self, path: Path) -> None:
+        try:
+            path.resolve().relative_to(REPO_ROOT)
+        except ValueError:
+            self.send_error(HTTPStatus.NOT_FOUND, "Missing file")
+            return
+        if not path.exists() or not path.is_file() or path.suffix != ".md":
+            self.send_error(HTTPStatus.NOT_FOUND, "Missing file")
+            return
+        data = markdown_page(path)
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        try:
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
     def send_json(self, payload: Any, status: HTTPStatus = HTTPStatus.OK) -> None:
         data = json.dumps(payload).encode("utf-8")
@@ -417,7 +624,10 @@ class ConsoleHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
-        self.wfile.write(data)
+        try:
+            self.wfile.write(data)
+        except (BrokenPipeError, ConnectionResetError):
+            return
 
 
 def pick_port(preferred: int = 8787) -> int:
@@ -433,7 +643,12 @@ def main() -> None:
     port = int(os.environ.get("LAB_CONSOLE_PORT", pick_port()))
     server = ThreadingHTTPServer(("127.0.0.1", port), ConsoleHandler)
     print(f"Lab Console running at http://127.0.0.1:{port}")
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nLab Console stopped.")
+    finally:
+        server.server_close()
 
 
 if __name__ == "__main__":

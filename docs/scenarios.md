@@ -21,12 +21,18 @@ Dashboard:
 Incident Lab / Podinfo Overview
 ```
 
+Prometheus alerts:
+
+```text
+http://localhost:9090/alerts
+```
+
 ## Scenario Index
 
 | Scenario | What it teaches | Trigger | Primary evidence |
 | --- | --- | --- | --- |
-| [Readiness Probe Failure](../scenarios/readiness-failure/README.md) | Running is not the same as Ready | `scripts/trigger-readiness-failure.sh` | Unready Pods, Unavailable Replicas, Kubernetes events |
-| [High Error Rate](../scenarios/high-error-rate/README.md) | Kubernetes can be healthy while the app returns 500s | `scripts/generate-errors.sh` | Error Ratio, Request Rate, Loki logs |
+| [Readiness Probe Failure](../scenarios/readiness-failure/README.md) | Running is not the same as Ready | `scripts/trigger-readiness-failure.sh` | Unready Pods, Unavailable Replicas, Kubernetes events, Prometheus alerts |
+| [High Error Rate](../scenarios/high-error-rate/README.md) | Kubernetes can be healthy while the app returns 500s | `scripts/generate-errors.sh` | Error Ratio, Request Rate, Loki logs, Prometheus alert |
 | [Pod Self-Healing](../scenarios/pod-self-healing/README.md) | Deployments recreate deleted pods | `scripts/trigger-pod-self-healing.sh` | Pod lifecycle events, replacement pod, ready replica recovery |
 
 ## Runbooks

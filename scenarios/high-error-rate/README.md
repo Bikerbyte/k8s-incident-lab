@@ -87,6 +87,22 @@ If this is too narrow, start with:
 
 Then inspect labels or log lines for Podinfo.
 
+## Expected Prometheus Alert
+
+Open:
+
+```text
+http://localhost:9090/alerts
+```
+
+After the error traffic has run for about 1 minute, `PodinfoHighErrorRate` should move from pending to firing.
+
+You can also run:
+
+```bash
+scripts/show-alerts.sh
+```
+
 ## Restore
 
 Stop the generator:

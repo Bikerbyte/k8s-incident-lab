@@ -100,6 +100,25 @@ Use Kubernetes events as the primary evidence:
 kubectl -n incident-lab get events --sort-by=.lastTimestamp
 ```
 
+## Expected Prometheus Alerts
+
+Open:
+
+```text
+http://localhost:9090/alerts
+```
+
+After the rollout has been stuck for about 1 minute, these alerts should move from pending to firing:
+
+- `PodinfoUnavailableReplicas`
+- `PodinfoUnreadyPods`
+
+You can also run:
+
+```bash
+scripts/show-alerts.sh
+```
+
 ## Restore
 
 ```bash

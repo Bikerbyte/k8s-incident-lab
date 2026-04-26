@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="night">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -14,6 +14,12 @@
           <h1>K8s Incident Lab</h1>
         </div>
         <div class="topbar-actions">
+          <nav class="service-links" aria-label="Local service links">
+            <a id="grafanaLink" class="button service-link" href="http://localhost:3000" target="_blank" rel="noreferrer">Grafana</a>
+            <a id="prometheusLink" class="button service-link" href="http://localhost:9090" target="_blank" rel="noreferrer">Prometheus</a>
+            <a id="podinfoLink" class="button service-link" href="http://localhost:9898" target="_blank" rel="noreferrer">Podinfo</a>
+          </nav>
+          <button id="themeToggleButton" class="button button-secondary" type="button" aria-pressed="false">Day Theme</button>
           <button id="refreshStatusButton" class="button button-secondary">Refresh Status</button>
           <button id="pollJobsButton" class="button button-secondary">Refresh Jobs</button>
         </div>
@@ -46,6 +52,24 @@
               <div id="jobMeta" class="job-meta">No job selected.</div>
               <pre id="jobOutput" class="job-output">Waiting for output...</pre>
             </div>
+          </div>
+        </section>
+
+        <section class="band split playground-band">
+          <div class="column">
+            <div class="section-heading">
+              <h2>Docs & Runbooks</h2>
+              <p>Open guided docs, runbooks, and troubleshooting notes.</p>
+            </div>
+            <div id="playgroundGrid" class="playground-grid"></div>
+          </div>
+
+          <div class="column">
+            <div class="section-heading">
+              <h2>Recent Jobs</h2>
+              <p id="jobsSummary">No job history loaded yet.</p>
+            </div>
+            <div id="jobsList" class="jobs-list"></div>
           </div>
         </section>
 

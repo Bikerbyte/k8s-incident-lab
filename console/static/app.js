@@ -2,10 +2,74 @@ const state = {
   actions: [],
   selectedJobId: null,
   pollTimer: null,
+  theme: "night",
 };
+
+const playgroundLinks = [
+  {
+    title: "Readiness Runbook",
+    detail: "Diagnose pods that run but never become ready.",
+    href: "/runbooks/readiness-failure.md",
+  },
+  {
+    title: "High Error Runbook",
+    detail: "Follow the HTTP 500 investigation path.",
+    href: "/runbooks/high-error-rate.md",
+  },
+  {
+    title: "Self-Healing Runbook",
+    detail: "Watch Kubernetes recreate a deleted pod.",
+    href: "/runbooks/pod-self-healing.md",
+  },
+  {
+    title: "Architecture Notes",
+    detail: "Review the lab components and observability flow.",
+    href: "/docs/architecture.md",
+  },
+  {
+    title: "Demo Flow",
+    detail: "Run the project as a guided incident demo.",
+    href: "/docs/demo-flow.md",
+  },
+  {
+    title: "Alerts Guide",
+    detail: "See which Prometheus alerts map to each scenario.",
+    href: "/docs/alerts.md",
+  },
+  {
+    title: "Troubleshooting",
+    detail: "Use a quick checklist when local access or pods look wrong.",
+    href: "/docs/troubleshooting.md",
+  },
+];
 
 function setText(id, value) {
   document.getElementById(id).textContent = value;
+}
+
+function storedTheme() {
+  try {
+    return localStorage.getItem("lab-console-theme");
+  } catch {
+    return null;
+  }
+}
+
+function storeTheme(theme) {
+  try {
+    localStorage.setItem("lab-console-theme", theme);
+  } catch {
+    return;
+  }
+}
+
+function applyTheme(theme) {
+  state.theme = theme === "day" ? "day" : "night";
+  document.documentElement.dataset.theme = state.theme;
+  const button = document.getElementById("themeToggleButton");
+  button.textContent = state.theme === "night" ? "Day Theme" : "Night Theme";
+  button.setAttribute("aria-pressed", String(state.theme === "day"));
+  storeTheme(state.theme);
 }
 
 function formatTimestamp(epochSeconds) {
@@ -73,6 +137,7 @@ function renderOverview(status) {
 
   const grafanaOpen = status.localAccess?.grafana?.listening;
   const podinfoOpen = status.localAccess?.podinfo?.listening;
+  const prometheusOpen = status.localAccess?.prometheus?.listening;
   grid.appendChild(
     metricCard(
       "Grafana Local Access",
@@ -89,8 +154,33 @@ function renderOverview(status) {
       status.localAccess?.podinfo?.url || "http://localhost:9898"
     )
   );
+  grid.appendChild(
+    metricCard(
+      "Prometheus Local Access",
+      prometheusOpen ? "Open" : "Closed",
+      prometheusOpen ? "good" : "warn",
+      status.localAccess?.prometheus?.url || "http://localhost:9090"
+    )
+  );
 
   setText("statusTimestamp", `Last refreshed: ${formatTimestamp(status.generatedAt)}`);
+}
+
+function updateServiceLinks(status) {
+  const services = {
+    grafanaLink: status.localAccess?.grafana,
+    prometheusLink: status.localAccess?.prometheus,
+    podinfoLink: status.localAccess?.podinfo,
+  };
+
+  Object.entries(services).forEach(([id, service]) => {
+    const link = document.getElementById(id);
+    if (!link || !service) return;
+    link.href = service.url;
+    link.classList.toggle("is-online", Boolean(service.listening));
+    link.classList.toggle("is-offline", !service.listening);
+    link.title = service.listening ? `${service.url} is listening` : `${service.url} is not listening yet`;
+  });
 }
 
 function resourceTable(title, rows, columns) {
@@ -177,6 +267,23 @@ function renderActions(status) {
   });
 }
 
+function renderPlayground() {
+  const grid = document.getElementById("playgroundGrid");
+  grid.innerHTML = "";
+  playgroundLinks.forEach((link) => {
+    const anchor = document.createElement("a");
+    anchor.className = "playground-link";
+    anchor.href = link.href;
+    anchor.target = "_blank";
+    anchor.rel = "noreferrer";
+    anchor.innerHTML = `
+      <span class="playground-title">${link.title}</span>
+      <span class="playground-detail">${link.detail}</span>
+    `;
+    grid.appendChild(anchor);
+  });
+}
+
 function renderScreenshots(status) {
   const grid = document.getElementById("screenshotsGrid");
   grid.innerHTML = "";
@@ -199,10 +306,13 @@ function renderScreenshots(status) {
 async function fetchStatus() {
   const response = await fetch("/api/status");
   const status = await response.json();
+  updateServiceLinks(status);
   renderOverview(status);
   renderResources(status);
   renderActions(status);
+  renderPlayground();
   renderScreenshots(status);
+  fetchJobs();
 }
 
 async function triggerAction(slug) {
@@ -226,6 +336,40 @@ async function fetchJob(jobId) {
   return response.json();
 }
 
+function renderJobs(payload) {
+  const jobs = payload.jobs || [];
+  const list = document.getElementById("jobsList");
+  list.innerHTML = "";
+  setText("jobsSummary", jobs.length ? `${jobs.length} recent job(s)` : "No jobs have run in this console session.");
+
+  if (!jobs.length) {
+    list.innerHTML = `<p class="empty-state">Run an action to create job history.</p>`;
+    return;
+  }
+
+  jobs.forEach((job) => {
+    const button = document.createElement("button");
+    button.className = `job-row status-${job.status}`;
+    button.type = "button";
+    button.innerHTML = `
+      <span class="job-row-title">${job.label}</span>
+      <span class="job-row-meta">${job.status} | ${formatTimestamp(job.createdAt)}</span>
+    `;
+    button.addEventListener("click", () => {
+      state.selectedJobId = job.id;
+      renderJob(job);
+      pollSelectedJob();
+    });
+    list.appendChild(button);
+  });
+}
+
+async function fetchJobs() {
+  const response = await fetch("/api/jobs");
+  if (!response.ok) return;
+  renderJobs(await response.json());
+}
+
 async function pollSelectedJob() {
   if (!state.selectedJobId) return;
   if (state.pollTimer) window.clearTimeout(state.pollTimer);
@@ -239,7 +383,14 @@ async function pollSelectedJob() {
   }
 }
 
+document.getElementById("themeToggleButton").addEventListener("click", () => {
+  applyTheme(state.theme === "night" ? "day" : "night");
+});
 document.getElementById("refreshStatusButton").addEventListener("click", fetchStatus);
-document.getElementById("pollJobsButton").addEventListener("click", pollSelectedJob);
+document.getElementById("pollJobsButton").addEventListener("click", () => {
+  pollSelectedJob();
+  fetchJobs();
+});
 
+applyTheme(storedTheme() || "night");
 fetchStatus();

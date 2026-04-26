@@ -46,12 +46,14 @@ fi
 
 start_forward "grafana" "monitoring" "kube-prometheus-stack-grafana" "3000" "80"
 start_forward "podinfo" "incident-lab" "podinfo" "9898" "9898"
+start_forward "prometheus" "monitoring" "kube-prometheus-stack-prometheus" "9090" "9090"
 
 cat <<'EOF'
 
 Open:
   Grafana: http://localhost:3000
   Podinfo: http://localhost:9898
+  Prometheus: http://localhost:9090
 
 Grafana login:
   admin / admin
@@ -59,4 +61,5 @@ Grafana login:
 To stop the port-forwards:
   pkill -f 'kubectl.*port-forward.*kube-prometheus-stack-grafana'
   pkill -f 'kubectl.*port-forward.*podinfo'
+  pkill -f 'kubectl.*port-forward.*kube-prometheus-stack-prometheus'
 EOF

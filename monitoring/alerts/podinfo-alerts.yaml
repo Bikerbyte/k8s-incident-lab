@@ -1,0 +1,50 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: podinfo-incident-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+    app.kubernetes.io/name: podinfo
+    app.kubernetes.io/part-of: k8s-incident-lab
+spec:
+  groups:
+    - name: podinfo.incident-lab
+      rules:
+        - alert: PodinfoHighErrorRate
+          expr: |
+            (
+              sum(rate(http_requests_total{namespace="incident-lab",status=~"5.."}[2m]))
+              /
+              clamp_min(sum(rate(http_requests_total{namespace="incident-lab"}[2m])), 0.001)
+            ) > 0.05
+          for: 1m
+          labels:
+            severity: warning
+            scenario: high-error-rate
+          annotations:
+            summary: Podinfo is returning elevated HTTP 5xx responses.
+            description: More than 5% of Podinfo requests have returned 5xx responses for at least 1 minute.
+            runbook_url: /runbooks/high-error-rate.md
+
+        - alert: PodinfoUnavailableReplicas
+          expr: kube_deployment_status_replicas_unavailable{namespace="incident-lab",deployment="podinfo"} > 0
+          for: 1m
+          labels:
+            severity: warning
+            scenario: readiness-failure
+          annotations:
+            summary: Podinfo has unavailable deployment replicas.
+            description: The Podinfo Deployment has had unavailable replicas for at least 1 minute.
+            runbook_url: /runbooks/readiness-failure.md
+
+        - alert: PodinfoUnreadyPods
+          expr: sum(kube_pod_status_ready{namespace="incident-lab",condition="false"} == 1) > 0
+          for: 1m
+          labels:
+            severity: warning
+            scenario: readiness-failure
+          annotations:
+            summary: Podinfo has pods that are not ready.
+            description: At least one pod in the incident-lab namespace has reported Not Ready for at least 1 minute.
+            runbook_url: /runbooks/readiness-failure.md

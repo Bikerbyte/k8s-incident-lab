@@ -92,7 +92,7 @@ The services run inside Kubernetes. Browser access through `localhost` only work
 Check whether local ports are open:
 
 ```bash
-ss -ltnp | rg ':(3000|9898)\b'
+ss -ltnp | rg ':(3000|9090|9898)\b'
 ```
 
 If nothing is listening, open Grafana:
@@ -105,6 +105,7 @@ This opens:
 
 ```text
 Grafana -> http://localhost:3000
+Prometheus -> http://localhost:9090
 Podinfo -> http://localhost:9898
 ```
 
@@ -112,6 +113,7 @@ Then visit:
 
 ```text
 http://localhost:3000
+http://localhost:9090
 http://localhost:9898
 ```
 
@@ -143,6 +145,18 @@ Expected:
 }
 ```
 
+Prometheus:
+
+```bash
+curl -I http://localhost:9090/-/ready
+```
+
+Expected:
+
+```text
+HTTP/1.1 200 OK
+```
+
 ## Quick Diagnosis
 
 Use this table to decide what to fix.
@@ -152,5 +166,6 @@ Use this table to decide what to fix.
 | `kubectl` says connection refused | Minikube API server is stopped | `minikube start` |
 | Pods are not listed | App or monitoring is not deployed | Run deploy/install scripts |
 | Pods are `Running` but browser does not open | Port-forward is not running | `scripts/port-forward.sh` |
+| Local ports are stale or confusing | Old port-forward process is still running | `scripts/stop-port-forward.sh`, then `scripts/port-forward.sh` |
 | Grafana opens but dashboard is missing | Dashboard ConfigMap was not applied | `kubectl apply -f monitoring/dashboards/podinfo-overview-dashboard.yaml` |
 | Podinfo returns OK but Grafana has no data | Prometheus may still be scraping or ServiceMonitor is missing | Wait 1 minute, then re-apply monitoring |

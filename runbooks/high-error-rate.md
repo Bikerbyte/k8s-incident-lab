@@ -18,6 +18,7 @@ Grafana:
 
 - Dashboard: `Incident Lab / Podinfo Overview`
 - Loki query: `{namespace="incident-lab"}`
+- Prometheus alert: `PodinfoHighErrorRate`
 
 ## Possible Cause
 
@@ -29,9 +30,10 @@ Grafana:
 
 1. Confirm pods are still ready.
 2. Check request and error panels in Grafana.
-3. Use Loki to inspect recent application logs.
-4. Identify which route or client is generating 5xx responses.
-5. Stop the failing traffic source or roll back the bad change.
+3. Check Prometheus alerts at `http://localhost:9090/alerts`.
+4. Use Loki to inspect recent application logs.
+5. Identify which route or client is generating 5xx responses.
+6. Stop the failing traffic source or roll back the bad change.
 
 ## Resolution
 

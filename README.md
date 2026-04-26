@@ -8,10 +8,12 @@ This project is an SRE-style playground. The goal is not to write a large applic
 
 - Kubernetes workload deployment with `Deployment`, `Service`, and `Namespace`
 - Metrics collection with Prometheus
+- Prometheus alert rules for incident signals
 - Dashboards with Grafana
 - Centralized logs with Loki and Promtail
 - Repeatable incident scenarios
 - Runbooks for troubleshooting and validation
+- Browser-based lab console for local operation
 
 ## Stack
 
@@ -40,6 +42,7 @@ k8s-incident-lab/
 +-- runbooks/
 +-- scenarios/
 +-- scripts/
++-- console/
 ```
 
 ## Prerequisites
@@ -83,6 +86,18 @@ scripts/run-console.sh
 
 Then open the printed local URL in your browser.
 
+Common shortcuts are also available through `make`:
+
+```bash
+make deploy
+make monitoring
+make port-forward
+make stop-port-forward
+make console
+make status
+make alerts
+```
+
 On Windows PowerShell, use the matching `.ps1` scripts:
 
 ```powershell
@@ -96,7 +111,19 @@ Open Grafana:
 scripts/port-forward.sh
 ```
 
-Then open `http://localhost:3000`.
+Then open:
+
+```text
+Grafana:    http://localhost:3000
+Prometheus: http://localhost:9090
+Podinfo:    http://localhost:9898
+```
+
+Stop local port-forwards:
+
+```bash
+scripts/stop-port-forward.sh
+```
 
 Default login:
 
@@ -117,6 +144,14 @@ Grafana usage guide:
 Troubleshooting:
 
 - [docs/troubleshooting.md](docs/troubleshooting.md)
+
+Alerts:
+
+- [docs/alerts.md](docs/alerts.md)
+
+Demo flow:
+
+- [docs/demo-flow.md](docs/demo-flow.md)
 
 Screenshot guide:
 
@@ -179,6 +214,18 @@ Runbook: [runbooks/pod-self-healing.md](runbooks/pod-self-healing.md)
 
 ## Useful Commands
 
+Validate the repository:
+
+```bash
+scripts/validate.sh
+```
+
+Show Prometheus alerts:
+
+```bash
+scripts/show-alerts.sh
+```
+
 Check app state:
 
 ```bash
@@ -210,18 +257,21 @@ scripts/cleanup.sh
 
 - [x] Demo app manifests
 - [x] Prometheus / Grafana Helm values
+- [x] Prometheus alert rules
 - [x] Loki / Promtail Helm values
 - [x] Grafana dashboard ConfigMap
+- [x] Local lab console
 - [x] Readiness failure scenario
 - [x] High error rate scenario
 - [x] Pod self-healing scenario
 - [x] Runbooks
 - [x] Helper scripts
-- [ ] Screenshots from a real cluster run
+- [x] Screenshots from a real cluster run
 
 ## Future Improvements
 
 - Alertmanager rules
+- Notification routing
 - Ingress and TLS
 - GitHub Actions validation
 - More detailed Grafana dashboard panels

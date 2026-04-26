@@ -5,6 +5,14 @@ command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+kctl() {
+  if command_exists timeout; then
+    timeout 20s kubectl "$@"
+  else
+    kubectl "$@"
+  fi
+}
+
 section() {
   printf '\n== %s ==\n' "$1"
 }
@@ -44,25 +52,30 @@ else
 fi
 
 section "Kubernetes API"
-if kubectl cluster-info >/dev/null 2>&1; then
+CLUSTER_OK=0
+if kctl cluster-info >/dev/null 2>&1; then
   echo "kubectl can reach the Kubernetes API."
-  kubectl get nodes -o wide
+  kctl get nodes -o wide
+  CLUSTER_OK=1
 else
   echo "kubectl cannot reach the Kubernetes API."
   echo "If you use minikube, run: minikube start"
-  exit 1
 fi
 
 section "Podinfo"
-if kubectl get namespace incident-lab >/dev/null 2>&1; then
-  kubectl -n incident-lab get deploy,pods,svc
+if [ "${CLUSTER_OK}" -eq 0 ]; then
+  echo "Skipped because the Kubernetes API is not reachable."
+elif kctl get namespace incident-lab >/dev/null 2>&1; then
+  kctl -n incident-lab get deploy,pods,svc
 else
   echo "Namespace incident-lab is missing. Run: scripts/deploy-app.sh"
 fi
 
 section "Monitoring"
-if kubectl get namespace monitoring >/dev/null 2>&1; then
-  kubectl -n monitoring get pods,svc
+if [ "${CLUSTER_OK}" -eq 0 ]; then
+  echo "Skipped because the Kubernetes API is not reachable."
+elif kctl get namespace monitoring >/dev/null 2>&1; then
+  kctl -n monitoring get pods,svc
 else
   echo "Namespace monitoring is missing. Run: scripts/install-monitoring.sh"
 fi
@@ -70,11 +83,15 @@ fi
 section "Local Web Access"
 port_status "Grafana" "3000" "http://localhost:3000"
 port_status "Podinfo" "9898" "http://localhost:9898"
+port_status "Prometheus" "9090" "http://localhost:9090"
 
 section "Useful Commands"
 cat <<'EOF'
 Open local web access:
   scripts/port-forward.sh
+
+Stop local web access:
+  scripts/stop-port-forward.sh
 
 Grafana login:
   admin / admin
@@ -84,3 +101,7 @@ Trigger scenarios:
   scripts/generate-errors.sh
   scripts/trigger-pod-self-healing.sh
 EOF
+
+if [ "${CLUSTER_OK}" -eq 0 ]; then
+  exit 1
+fi

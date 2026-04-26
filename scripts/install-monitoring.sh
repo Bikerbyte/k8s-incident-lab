@@ -32,8 +32,9 @@ helm upgrade --install promtail grafana/promtail \
 kubectl -n monitoring rollout status deploy/kube-prometheus-stack-grafana
 kubectl apply -f "${REPO_ROOT}/monitoring/servicemonitors/podinfo-servicemonitor.yaml"
 kubectl apply -f "${REPO_ROOT}/monitoring/dashboards/podinfo-overview-dashboard.yaml"
+kubectl apply -f "${REPO_ROOT}/monitoring/alerts/podinfo-alerts.yaml"
 
 echo "Monitoring stack installed."
-echo "Open Grafana with:"
-echo "kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80"
+echo "Open local access with:"
+echo "scripts/port-forward.sh"
 echo "Login: admin / admin"
