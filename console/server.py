@@ -130,7 +130,8 @@ ACTIONS: dict[str, Action] = {
 
 TERMINAL_TIMEOUT_SECONDS = 30
 MAX_TERMINAL_COMMAND_LENGTH = 300
-SAFE_KUBECTL_VERBS = {
+LAB_NAMESPACE = "incident-lab"
+READ_ONLY_KUBECTL_VERBS = {
     "api-resources",
     "api-versions",
     "cluster-info",
@@ -141,32 +142,66 @@ SAFE_KUBECTL_VERBS = {
     "top",
     "version",
 }
-BLOCKED_KUBECTL_VERBS = {
+MUTATING_KUBECTL_VERBS = {
     "annotate",
+    "create",
+    "delete",
+    "expose",
+    "label",
+    "patch",
+    "rollout",
+    "run",
+    "scale",
+    "set",
+}
+BLOCKED_KUBECTL_VERBS = {
     "apply",
     "attach",
     "cordon",
     "cp",
-    "create",
     "debug",
-    "delete",
     "drain",
     "edit",
     "exec",
-    "expose",
-    "label",
-    "patch",
     "port-forward",
     "proxy",
     "replace",
-    "run",
-    "scale",
-    "set",
     "taint",
     "uncordon",
 }
-SAFE_ROLLOUT_SUBCOMMANDS = {"history", "status"}
-BLOCKED_KUBECTL_FLAGS = {"-f", "--filename", "--follow", "--watch", "--watch-only", "-w"}
+READ_ONLY_ROLLOUT_SUBCOMMANDS = {"history", "status"}
+MUTATING_ROLLOUT_SUBCOMMANDS = {"restart", "undo"}
+BLOCKED_KUBECTL_FLAGS = {
+    "-A",
+    "-f",
+    "-w",
+    "--all-namespaces",
+    "--filename",
+    "--follow",
+    "--watch",
+    "--watch-only",
+}
+MUTABLE_RESOURCE_KINDS = {
+    "cm",
+    "configmap",
+    "configmaps",
+    "deploy",
+    "deployment",
+    "deployments",
+    "ep",
+    "endpoints",
+    "pod",
+    "pods",
+    "po",
+    "replicaset",
+    "replicasets",
+    "rs",
+    "secret",
+    "secrets",
+    "service",
+    "services",
+    "svc",
+}
 SAFE_HELM_VERBS = {"get", "history", "list", "status"}
 SAFE_CURL_HOSTS = {"localhost", "127.0.0.1"}
 SAFE_CURL_PORTS = {3000, 9090, 9898}
@@ -218,8 +253,8 @@ def command_policy_message(argv: list[str]) -> str:
     printable = " ".join(argv)
     return (
         f"Blocked command: {printable}\n\n"
-        "This guided terminal only runs lab-safe commands: read-only kubectl, read-only helm, "
-        "localhost curl checks, and selected incident lab scripts."
+        f"This guided terminal allows kubectl practice inside the {LAB_NAMESPACE} namespace, "
+        "read-only helm, localhost curl checks, and selected incident lab scripts."
     )
 
 
@@ -227,6 +262,68 @@ def normalize_script_path(token: str) -> str:
     if token.startswith("./"):
         token = token[2:]
     return token
+
+
+def kubectl_namespace(argv: list[str]) -> tuple[str | None, str]:
+    namespace: str | None = None
+    args = argv[1:]
+    for index, arg in enumerate(args):
+        if arg == "-n" or arg == "--namespace":
+            if index + 1 >= len(args):
+                return None, f"`{arg}` needs a namespace value."
+            value = args[index + 1]
+            if namespace and namespace != value:
+                return None, "Use only one namespace value per command."
+            namespace = value
+        elif arg.startswith("--namespace="):
+            value = arg.split("=", 1)[1]
+            if namespace and namespace != value:
+                return None, "Use only one namespace value per command."
+            namespace = value
+    return namespace, ""
+
+
+def kubectl_positional_args(argv: list[str]) -> list[str]:
+    positional: list[str] = []
+    skip_next = False
+    options_with_values = {"-n", "--namespace", "-o", "--output", "-l", "--selector", "--context"}
+    for arg in argv[1:]:
+        if skip_next:
+            skip_next = False
+            continue
+        if arg in options_with_values:
+            skip_next = True
+            continue
+        if arg.startswith("-"):
+            continue
+        positional.append(arg.lower())
+    return positional
+
+
+def resource_kind(token: str) -> str:
+    return token.split("/", 1)[0]
+
+
+def kubectl_mutation_resource_allowed(verb: str, positional: list[str]) -> tuple[bool, str]:
+    if verb == "run":
+        return True, ""
+    if verb == "rollout":
+        subcommand = positional[1] if len(positional) > 1 else ""
+        if subcommand in READ_ONLY_ROLLOUT_SUBCOMMANDS:
+            return True, ""
+        if subcommand not in MUTATING_ROLLOUT_SUBCOMMANDS:
+            return False, "Only rollout status, history, restart, and undo are allowed here."
+        target = positional[2] if len(positional) > 2 else ""
+    elif verb == "set":
+        target = positional[2] if len(positional) > 2 else ""
+    else:
+        target = positional[1] if len(positional) > 1 else ""
+
+    if not target:
+        return False, "Include the namespaced resource you want to operate on."
+    if resource_kind(target) not in MUTABLE_RESOURCE_KINDS:
+        return False, f"`{target}` is not in the lab terminal's mutable resource list."
+    return True, ""
 
 
 def validate_kubectl(argv: list[str]) -> tuple[bool, str]:
@@ -238,16 +335,30 @@ def validate_kubectl(argv: list[str]) -> tuple[bool, str]:
     if blocked_flags:
         return False, f"`{blocked_flags[0]}` is blocked so terminal commands finish predictably."
 
-    verbs = [arg for arg in lowered if not arg.startswith("-")]
-    verb = next((arg for arg in verbs if arg in SAFE_KUBECTL_VERBS), "")
+    namespace, namespace_error = kubectl_namespace(argv)
+    if namespace_error:
+        return False, namespace_error
+    if namespace and namespace != LAB_NAMESPACE:
+        return False, f"This terminal is locked to the `{LAB_NAMESPACE}` namespace."
+
+    verbs = kubectl_positional_args(argv)
+    verb = next((arg for arg in verbs if arg in READ_ONLY_KUBECTL_VERBS | MUTATING_KUBECTL_VERBS), "")
     if not verb:
-        return False, "Use a read-only kubectl command such as get, describe, logs, or rollout status."
+        return False, "Use kubectl get, describe, logs, create, run, expose, delete, patch, scale, set, or rollout."
+
     if verb == "rollout":
         rollout_index = verbs.index("rollout")
         subcommand = verbs[rollout_index + 1] if rollout_index + 1 < len(verbs) else ""
-        if subcommand not in SAFE_ROLLOUT_SUBCOMMANDS:
-            return False, "Only `kubectl rollout status` and `kubectl rollout history` are allowed here."
-    return True, ""
+        if subcommand in READ_ONLY_ROLLOUT_SUBCOMMANDS:
+            return True, ""
+
+    if verb in READ_ONLY_KUBECTL_VERBS:
+        return True, ""
+
+    if namespace != LAB_NAMESPACE:
+        return False, f"Mutation commands must include `-n {LAB_NAMESPACE}`."
+
+    return kubectl_mutation_resource_allowed(verb, verbs)
 
 
 def validate_helm(argv: list[str]) -> tuple[bool, str]:
@@ -321,6 +432,14 @@ def terminal_command_hint(command: str, output: str, returncode: int) -> str:
         return "After restoring, validate with rollout status, pods, and endpoints."
     if "rollout status" in lowered:
         return "A successful rollout is not enough by itself; confirm pods and endpoints are healthy."
+    if " delete " in lowered:
+        return "After deletion, observe whether a controller recreates the resource or whether it stays gone."
+    if " run " in lowered or " create " in lowered:
+        return "After creating a resource, inspect it with kubectl get and kubectl describe."
+    if " expose " in lowered or " service " in lowered:
+        return "After Service changes, check selectors and endpoints to prove traffic can route."
+    if " patch " in lowered or " scale " in lowered or " set " in lowered:
+        return "After changing a workload, validate rollout, pods, and Service endpoints."
     return "Use the output to decide the next observation before changing anything."
 
 

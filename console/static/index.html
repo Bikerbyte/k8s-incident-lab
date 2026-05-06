@@ -44,7 +44,7 @@
                   <h2>Guided Incident Terminal</h2>
                   <p id="guideSummary">Practice the readiness failure path with real Kubernetes commands.</p>
                 </div>
-                <div id="terminalPolicy" class="policy-pill">Allowlist terminal</div>
+                <div id="terminalPolicy" class="policy-pill">Namespace-locked terminal</div>
               </div>
 
               <div id="guidedSteps" class="stepper" aria-label="Incident investigation steps"></div>
@@ -200,13 +200,14 @@
           <div class="column">
             <div class="section-heading">
               <h2>Terminal Notes</h2>
-              <p>Use the guided tab for hands-on command practice.</p>
+              <p>Mutation commands must stay inside incident-lab.</p>
             </div>
             <div class="resource-block note-block">
               <h3>Useful Checks</h3>
               <code>kubectl -n incident-lab get pods</code>
               <code>kubectl -n incident-lab get endpoints podinfo</code>
-              <code>kubectl -n monitoring get pods</code>
+              <code>kubectl -n incident-lab run scratch --image=nginx --restart=Never</code>
+              <code>kubectl -n incident-lab delete pod scratch</code>
               <code>curl http://localhost:9898/readyz</code>
             </div>
           </div>

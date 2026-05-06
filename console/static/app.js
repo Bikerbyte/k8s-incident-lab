@@ -688,6 +688,6 @@ appendTerminalEntry("welcome", {
   durationMs: 0,
   output:
     "Start by typing a real kubectl command. Suggested commands fill the prompt, but you choose when to run them.",
-  hint: "Try: kubectl -n incident-lab get pods",
+  hint: "Mutation commands are allowed when they explicitly stay in the incident-lab namespace.",
 });
 fetchStatus();
