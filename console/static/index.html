@@ -14,66 +14,172 @@
           <h1>K8s Incident Lab</h1>
         </div>
         <div class="topbar-actions">
+          <div id="labStatusChips" class="status-chips" aria-label="Lab status">
+            <span class="status-chip">Checking cluster</span>
+          </div>
           <nav class="service-links" aria-label="Local service links">
             <a id="grafanaLink" class="button service-link" href="http://localhost:3000" target="_blank" rel="noreferrer">Grafana</a>
             <a id="prometheusLink" class="button service-link" href="http://localhost:9090" target="_blank" rel="noreferrer">Prometheus</a>
             <a id="podinfoLink" class="button service-link" href="http://localhost:9898" target="_blank" rel="noreferrer">Podinfo</a>
           </nav>
-          <button id="themeToggleButton" class="button button-secondary" type="button" aria-pressed="false">Day Theme</button>
-          <button id="refreshStatusButton" class="button button-secondary">Refresh Status</button>
-          <button id="pollJobsButton" class="button button-secondary">Refresh Jobs</button>
+          <button id="themeToggleButton" class="button icon-button" type="button" aria-label="Switch theme" aria-pressed="false" title="Switch theme">☀</button>
+          <button id="refreshStatusButton" class="button button-secondary" title="Refresh lab status">Refresh</button>
+          <button id="pollJobsButton" class="button button-secondary" title="Refresh selected job output">Jobs</button>
         </div>
       </header>
 
+      <nav class="app-tabs" aria-label="Console sections">
+        <button class="tab-button is-active" type="button" data-tab="guided">Guided Terminal</button>
+        <button class="tab-button" type="button" data-tab="overview">Overview</button>
+        <button class="tab-button" type="button" data-tab="runbooks">Runbooks</button>
+        <button class="tab-button" type="button" data-tab="observability">Observability</button>
+      </nav>
+
       <main class="layout">
-        <section class="band">
+        <section id="tab-guided" class="tab-panel is-active">
+          <div class="guided-layout">
+            <section class="guided-main">
+              <div class="section-heading">
+                <div>
+                  <h2>Guided Incident Terminal</h2>
+                  <p id="guideSummary">Practice the readiness failure path with real Kubernetes commands.</p>
+                </div>
+                <div id="terminalPolicy" class="policy-pill">Allowlist terminal</div>
+              </div>
+
+              <div id="guidedSteps" class="stepper" aria-label="Incident investigation steps"></div>
+
+              <div class="terminal-tabs" aria-label="Terminal workspaces">
+                <button class="terminal-tab is-active" type="button">Terminal 1</button>
+                <button class="terminal-tab" type="button">Grafana Notes</button>
+                <button class="terminal-tab" type="button">Prometheus Alerts</button>
+                <button class="terminal-tab" type="button">Runbook</button>
+              </div>
+
+              <section class="terminal-panel" aria-label="Guided terminal">
+                <div id="terminalOutput" class="terminal-output" aria-live="polite"></div>
+                <form id="terminalForm" class="terminal-form">
+                  <span class="terminal-prompt">$</span>
+                  <input id="terminalInput" class="terminal-input" autocomplete="off" spellcheck="false" placeholder="kubectl -n incident-lab get pods">
+                  <button id="terminalRunButton" class="button" type="submit">Run</button>
+                </form>
+              </section>
+
+              <div class="validation-strip">
+                <span id="terminalStatus">Waiting for your first observation.</span>
+                <span id="nextCheck">Next check: pod readiness</span>
+              </div>
+            </section>
+
+            <aside class="coaching-panel">
+              <div class="coaching-block">
+                <p class="eyebrow">Current Step</p>
+                <h2 id="currentStepTitle">Confirm pod readiness</h2>
+                <p id="currentStepGoal">Use kubectl to compare pod READY and STATUS values.</p>
+              </div>
+
+              <div class="coaching-block">
+                <h3>Suggested Commands</h3>
+                <div id="suggestionList" class="command-chip-list"></div>
+              </div>
+
+              <div class="coaching-block">
+                <h3>What This Tells You</h3>
+                <p id="coachingText">A pod can be Running while failing readiness. Start by checking the READY column.</p>
+              </div>
+
+              <div class="coaching-block">
+                <h3>Scenario Controls</h3>
+                <div class="mini-action-row">
+                  <button class="button button-secondary fill-command" type="button" data-command="scripts/trigger-readiness-failure.sh">Trigger readiness failure</button>
+                  <button class="button button-secondary fill-command" type="button" data-command="scripts/restore-readiness.sh">Restore readiness</button>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </section>
+
+        <section id="tab-overview" class="tab-panel">
+          <div class="band">
+            <div class="section-heading">
+              <h2>Overview</h2>
+              <p id="statusTimestamp" class="loading-copy">Checking lab state...</p>
+            </div>
+            <div id="overviewGrid" class="metric-grid">
+              <article class="metric-card skeleton-card"></article>
+              <article class="metric-card skeleton-card"></article>
+              <article class="metric-card skeleton-card"></article>
+              <article class="metric-card skeleton-card"></article>
+              <article class="metric-card skeleton-card"></article>
+              <article class="metric-card skeleton-card"></article>
+            </div>
+          </div>
+
+          <div class="band split">
+            <div class="column">
+              <div class="section-heading">
+                <h2>Lab Controls</h2>
+              </div>
+              <div id="controlsGrid" class="control-grid">
+                <div class="action-button skeleton-action"></div>
+                <div class="action-button skeleton-action"></div>
+                <div class="action-button skeleton-action"></div>
+                <div class="action-button skeleton-action"></div>
+              </div>
+            </div>
+
+            <div class="column">
+              <div class="section-heading">
+                <h2>Job Output</h2>
+                <p id="jobLabel">Pick an action to start a job.</p>
+              </div>
+              <div class="command-surface">
+                <div id="jobMeta" class="job-meta">No job selected.</div>
+                <pre id="jobOutput" class="job-output">Waiting for output...</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="band split">
+            <div class="column">
+              <div class="section-heading">
+                <h2>Scenario Actions</h2>
+              </div>
+              <div id="actionsGrid" class="action-grid">
+                <div class="action-button skeleton-action"></div>
+                <div class="action-button skeleton-action"></div>
+              </div>
+            </div>
+
+            <div class="column">
+              <div class="section-heading">
+                <h2>Recent Jobs</h2>
+                <p id="jobsSummary">No job history loaded yet.</p>
+              </div>
+              <div id="jobsList" class="jobs-list"></div>
+            </div>
+          </div>
+        </section>
+
+        <section id="tab-runbooks" class="tab-panel">
           <div class="section-heading">
-            <h2>Overview</h2>
-            <p id="statusTimestamp">Loading current lab state...</p>
+            <h2>Docs & Runbooks</h2>
           </div>
-          <div id="overviewGrid" class="metric-grid"></div>
+          <div id="playgroundGrid" class="playground-grid docs-grid">
+            <div class="playground-link skeleton-doc"></div>
+            <div class="playground-link skeleton-doc"></div>
+            <div class="playground-link skeleton-doc"></div>
+            <div class="playground-link skeleton-doc"></div>
+          </div>
+
+          <div class="section-heading secondary-heading">
+            <h2>Examples</h2>
+            <p>Reference screenshots from real runs.</p>
+          </div>
+          <div id="screenshotsGrid" class="screenshot-grid"></div>
         </section>
 
-        <section class="band split">
-          <div class="column">
-            <div class="section-heading">
-              <h2>Actions</h2>
-              <p>Run the existing scripts without leaving the browser.</p>
-            </div>
-            <div id="actionsGrid" class="action-grid"></div>
-          </div>
-
-          <div class="column">
-            <div class="section-heading">
-              <h2>Job Output</h2>
-              <p id="jobLabel">Pick an action to start a job.</p>
-            </div>
-            <div class="command-surface">
-              <div id="jobMeta" class="job-meta">No job selected.</div>
-              <pre id="jobOutput" class="job-output">Waiting for output...</pre>
-            </div>
-          </div>
-        </section>
-
-        <section class="band split playground-band">
-          <div class="column">
-            <div class="section-heading">
-              <h2>Docs & Runbooks</h2>
-              <p>Open guided docs, runbooks, and troubleshooting notes.</p>
-            </div>
-            <div id="playgroundGrid" class="playground-grid"></div>
-          </div>
-
-          <div class="column">
-            <div class="section-heading">
-              <h2>Recent Jobs</h2>
-              <p id="jobsSummary">No job history loaded yet.</p>
-            </div>
-            <div id="jobsList" class="jobs-list"></div>
-          </div>
-        </section>
-
-        <section class="band split">
+        <section id="tab-observability" class="tab-panel split">
           <div class="column">
             <div class="section-heading">
               <h2>Cluster Resources</h2>
@@ -93,10 +199,16 @@
 
           <div class="column">
             <div class="section-heading">
-              <h2>Examples</h2>
-              <p>Reference screenshots from real runs.</p>
+              <h2>Terminal Notes</h2>
+              <p>Use the guided tab for hands-on command practice.</p>
             </div>
-            <div id="screenshotsGrid" class="screenshot-grid"></div>
+            <div class="resource-block note-block">
+              <h3>Useful Checks</h3>
+              <code>kubectl -n incident-lab get pods</code>
+              <code>kubectl -n incident-lab get endpoints podinfo</code>
+              <code>kubectl -n monitoring get pods</code>
+              <code>curl http://localhost:9898/readyz</code>
+            </div>
           </div>
         </section>
       </main>

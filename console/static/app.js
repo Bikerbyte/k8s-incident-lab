@@ -1,9 +1,70 @@
 const state = {
   actions: [],
+  controls: [],
   selectedJobId: null,
   pollTimer: null,
   theme: "night",
+  activeTab: "guided",
+  guideStep: 0,
+  terminalBusy: false,
 };
+
+const guideSteps = [
+  {
+    phase: "Observe",
+    title: "Confirm pod readiness",
+    goal: "Use kubectl to compare pod READY and STATUS values.",
+    commands: ["kubectl -n incident-lab get pods"],
+    matchers: ["get pods"],
+    coaching: "A pod can be Running while failing readiness. Start by checking the READY column.",
+    nextCheck: "Next check: pod events",
+  },
+  {
+    phase: "Diagnose",
+    title: "Inspect probe events",
+    goal: "Describe the pod and look for readiness probe failures in Events.",
+    commands: ["kubectl -n incident-lab describe pod -l app.kubernetes.io/name=podinfo"],
+    matchers: ["describe pod"],
+    coaching: "Describe output connects symptoms to Kubernetes events, including probe failures and container state.",
+    nextCheck: "Next check: service endpoints",
+  },
+  {
+    phase: "Diagnose",
+    title: "Check service endpoints",
+    goal: "Confirm whether the Service has ready pods behind it.",
+    commands: ["kubectl -n incident-lab get endpoints podinfo"],
+    matchers: ["get endpoints"],
+    coaching: "If endpoints are empty or reduced, traffic through the Service has fewer healthy targets.",
+    nextCheck: "Next check: application logs",
+  },
+  {
+    phase: "Observe",
+    title: "Read application logs",
+    goal: "Check whether the app is failing or Kubernetes is rejecting readiness.",
+    commands: ["kubectl -n incident-lab logs deploy/podinfo --tail=100"],
+    matchers: ["logs"],
+    coaching: "Logs help separate application failures from Kubernetes probe configuration issues.",
+    nextCheck: "Next check: restore readiness",
+  },
+  {
+    phase: "Act",
+    title: "Restore readiness",
+    goal: "Run the lab recovery script, then wait for rollout health.",
+    commands: ["scripts/restore-readiness.sh", "kubectl -n incident-lab rollout status deploy/podinfo"],
+    matchers: ["restore-readiness", "rollout status"],
+    coaching: "Recovery is only complete after the Deployment rolls out and ready endpoints return.",
+    nextCheck: "Next check: final validation",
+  },
+  {
+    phase: "Validate",
+    title: "Validate healthy service",
+    goal: "Confirm pods and endpoints are healthy after the fix.",
+    commands: ["kubectl -n incident-lab get pods", "kubectl -n incident-lab get endpoints podinfo"],
+    matchers: ["get pods", "get endpoints"],
+    coaching: "Close the incident only after both workload health and routing targets look normal.",
+    nextCheck: "Scenario complete",
+  },
+];
 
 const playgroundLinks = [
   {
@@ -47,6 +108,37 @@ function setText(id, value) {
   document.getElementById(id).textContent = value;
 }
 
+function switchTab(tab) {
+  state.activeTab = tab;
+  document.querySelectorAll(".tab-button").forEach((button) => {
+    const isActive = button.dataset.tab === tab;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  });
+  document.querySelectorAll(".tab-panel").forEach((panel) => {
+    panel.classList.toggle("is-active", panel.id === `tab-${tab}`);
+  });
+}
+
+function statusChip(label, tone = "neutral") {
+  return `<span class="status-chip tone-${tone}">${label}</span>`;
+}
+
+function renderStatusChips(status) {
+  const chips = document.getElementById("labStatusChips");
+  if (!chips) return;
+  const appPods = status.workloads?.app?.pods || [];
+  const readyPods = appPods.filter((pod) => pod.ready.startsWith("1/1")).length;
+  const clusterTone = status.cluster?.reachable ? "good" : "danger";
+  const podTone = appPods.length && readyPods === appPods.length ? "good" : "warn";
+  const grafanaTone = status.localAccess?.grafana?.listening ? "good" : "warn";
+  chips.innerHTML = [
+    statusChip(status.cluster?.reachable ? "Cluster reachable" : "Cluster offline", clusterTone),
+    statusChip(appPods.length ? `Podinfo ${readyPods}/${appPods.length}` : "Podinfo not deployed", podTone),
+    statusChip(status.localAccess?.grafana?.listening ? "Grafana open" : "Grafana closed", grafanaTone),
+  ].join("");
+}
+
 function storedTheme() {
   try {
     return localStorage.getItem("lab-console-theme");
@@ -67,7 +159,10 @@ function applyTheme(theme) {
   state.theme = theme === "day" ? "day" : "night";
   document.documentElement.dataset.theme = state.theme;
   const button = document.getElementById("themeToggleButton");
-  button.textContent = state.theme === "night" ? "Day Theme" : "Night Theme";
+  const nextTheme = state.theme === "night" ? "day" : "night";
+  button.textContent = state.theme === "night" ? "☀" : "☾";
+  button.title = `Switch to ${nextTheme} theme`;
+  button.setAttribute("aria-label", `Switch to ${nextTheme} theme`);
   button.setAttribute("aria-pressed", String(state.theme === "day"));
   storeTheme(state.theme);
 }
@@ -163,7 +258,9 @@ function renderOverview(status) {
     )
   );
 
-  setText("statusTimestamp", `Last refreshed: ${formatTimestamp(status.generatedAt)}`);
+  const timestamp = document.getElementById("statusTimestamp");
+  timestamp.classList.remove("loading-copy");
+  timestamp.textContent = `Last refreshed: ${formatTimestamp(status.generatedAt)}`;
 }
 
 function updateServiceLinks(status) {
@@ -250,21 +347,38 @@ function renderResources(status) {
   );
 }
 
-function renderActions(status) {
-  state.actions = status.actions || [];
-  const grid = document.getElementById("actionsGrid");
-  grid.innerHTML = "";
-  state.actions.forEach((action) => {
-    const button = document.createElement("button");
-    button.className = `action-button ${action.dangerous ? "danger" : ""}`;
-    button.innerHTML = `
+function actionButton(action) {
+  const button = document.createElement("button");
+  button.className = `action-button ${action.dangerous ? "danger" : ""}`;
+  button.title = action.command;
+  button.innerHTML = `
+    <span class="action-icon" aria-hidden="true">${action.icon || "•"}</span>
+    <span class="action-copy">
       <span class="action-label">${action.label}</span>
       <span class="action-description">${action.description}</span>
       <span class="action-command">${action.command}</span>
-    `;
-    button.addEventListener("click", () => triggerAction(action.slug));
-    grid.appendChild(button);
-  });
+    </span>
+  `;
+  button.addEventListener("click", () => triggerAction(action.slug));
+  return button;
+}
+
+function renderActionGroup(gridId, actions, emptyText) {
+  const grid = document.getElementById(gridId);
+  grid.innerHTML = "";
+  if (!actions.length) {
+    grid.innerHTML = `<p class="empty-state">${emptyText}</p>`;
+    return;
+  }
+  actions.forEach((action) => grid.appendChild(actionButton(action)));
+}
+
+function renderActions(status) {
+  const actions = status.actions || [];
+  state.controls = actions.filter((action) => action.group !== "scenario");
+  state.actions = actions.filter((action) => action.group === "scenario");
+  renderActionGroup("controlsGrid", state.controls, "No lab controls are available.");
+  renderActionGroup("actionsGrid", state.actions, "No scenario actions are available.");
 }
 
 function renderPlayground() {
@@ -303,16 +417,175 @@ function renderScreenshots(status) {
   });
 }
 
+function currentGuideStep() {
+  return guideSteps[Math.min(state.guideStep, guideSteps.length - 1)];
+}
+
+function renderGuidedSteps() {
+  const wrapper = document.getElementById("guidedSteps");
+  if (!wrapper) return;
+  wrapper.innerHTML = "";
+  guideSteps.forEach((step, index) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "step-item";
+    if (index < state.guideStep) item.classList.add("is-complete");
+    if (index === state.guideStep) item.classList.add("is-current");
+    item.innerHTML = `
+      <span class="step-index">${index + 1}</span>
+      <span class="step-copy">
+        <span class="step-phase">${step.phase}</span>
+        <span class="step-title">${step.title}</span>
+      </span>
+    `;
+    item.addEventListener("click", () => {
+      state.guideStep = index;
+      renderGuide();
+    });
+    wrapper.appendChild(item);
+  });
+}
+
+function renderCommandSuggestions(step) {
+  const list = document.getElementById("suggestionList");
+  list.innerHTML = "";
+  step.commands.forEach((command) => {
+    const button = document.createElement("button");
+    button.className = "command-chip";
+    button.type = "button";
+    button.textContent = command;
+    button.title = "Fill terminal input";
+    button.addEventListener("click", () => fillTerminal(command));
+    list.appendChild(button);
+  });
+}
+
+function renderGuide() {
+  const step = currentGuideStep();
+  setText("currentStepTitle", step.title);
+  setText("currentStepGoal", step.goal);
+  setText("coachingText", step.coaching);
+  setText("nextCheck", step.nextCheck);
+  renderGuidedSteps();
+  renderCommandSuggestions(step);
+}
+
+function fillTerminal(command) {
+  const input = document.getElementById("terminalInput");
+  input.value = command;
+  input.focus();
+}
+
+function appendTerminalEntry(command, payload) {
+  const output = document.getElementById("terminalOutput");
+  const entry = document.createElement("article");
+  entry.className = `terminal-entry status-${payload.status}`;
+
+  const commandLine = document.createElement("div");
+  commandLine.className = "terminal-command";
+  commandLine.textContent = `$ ${command}`;
+
+  const pre = document.createElement("pre");
+  pre.className = "terminal-result";
+  pre.textContent = payload.output || "(no output)";
+
+  const meta = document.createElement("div");
+  meta.className = "terminal-meta";
+  meta.textContent = `${payload.status} | exit ${payload.returncode} | ${payload.durationMs || 0}ms`;
+
+  const hint = document.createElement("p");
+  hint.className = "terminal-hint";
+  hint.textContent = payload.hint || "Use this output to choose the next check.";
+
+  entry.append(commandLine, pre, meta, hint);
+  output.appendChild(entry);
+  output.scrollTop = output.scrollHeight;
+}
+
+function commandMatchesStep(command, step) {
+  const normalized = command.toLowerCase();
+  return step.matchers.some((matcher) => normalized.includes(matcher));
+}
+
+function advanceGuideForCommand(command, payload) {
+  const step = currentGuideStep();
+  if (payload.status === "blocked") {
+    setText("terminalStatus", "Command blocked by the lab allowlist.");
+    return;
+  }
+  if (payload.status === "failed") {
+    setText("terminalStatus", "Command ran but returned an error. Use the output before moving on.");
+    return;
+  }
+  if (commandMatchesStep(command, step)) {
+    if (state.guideStep < guideSteps.length - 1) {
+      state.guideStep += 1;
+      setText("terminalStatus", `Good observation. Moving to: ${currentGuideStep().title}.`);
+    } else {
+      setText("terminalStatus", "Readiness scenario validated.");
+    }
+    renderGuide();
+    return;
+  }
+  setText("terminalStatus", "Command completed. The guide is still waiting for the current check.");
+}
+
+async function runTerminalCommand(command) {
+  if (state.terminalBusy) return;
+  state.terminalBusy = true;
+  const runButton = document.getElementById("terminalRunButton");
+  runButton.disabled = true;
+  setText("terminalStatus", "Running command...");
+  try {
+    const response = await fetch("/api/terminal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ command }),
+    });
+    if (!response.ok) throw new Error(`Terminal request failed: ${response.status}`);
+    const payload = await response.json();
+    appendTerminalEntry(command, payload);
+    advanceGuideForCommand(command, payload);
+    fetchStatus();
+  } catch (error) {
+    appendTerminalEntry(command, {
+      status: "failed",
+      returncode: 1,
+      durationMs: 0,
+      output: String(error),
+      hint: "The console server could not run this command.",
+    });
+    setText("terminalStatus", "Terminal request failed.");
+  } finally {
+    state.terminalBusy = false;
+    runButton.disabled = false;
+  }
+}
+
 async function fetchStatus() {
-  const response = await fetch("/api/status");
-  const status = await response.json();
-  updateServiceLinks(status);
-  renderOverview(status);
-  renderResources(status);
-  renderActions(status);
-  renderPlayground();
-  renderScreenshots(status);
-  fetchJobs();
+  const timestamp = document.getElementById("statusTimestamp");
+  timestamp.classList.add("loading-copy");
+  timestamp.textContent = "Checking lab state...";
+  try {
+    const response = await fetch("/api/status");
+    if (!response.ok) throw new Error(`Status request failed: ${response.status}`);
+    const status = await response.json();
+    renderStatusChips(status);
+    updateServiceLinks(status);
+    renderOverview(status);
+    renderResources(status);
+    renderActions(status);
+    renderPlayground();
+    renderScreenshots(status);
+    fetchJobs();
+  } catch (error) {
+    timestamp.classList.remove("loading-copy");
+    timestamp.textContent = "Status unavailable. Check the console server.";
+    document.getElementById("labStatusChips").innerHTML = statusChip("Console offline", "danger");
+    document.getElementById("overviewGrid").innerHTML = "";
+    document.getElementById("controlsGrid").innerHTML = `<p class="empty-state">Unable to load lab controls.</p>`;
+    document.getElementById("actionsGrid").innerHTML = `<p class="empty-state">Unable to load scenario actions.</p>`;
+  }
 }
 
 async function triggerAction(slug) {
@@ -391,6 +664,30 @@ document.getElementById("pollJobsButton").addEventListener("click", () => {
   pollSelectedJob();
   fetchJobs();
 });
+document.querySelectorAll(".tab-button").forEach((button) => {
+  button.addEventListener("click", () => switchTab(button.dataset.tab));
+});
+document.getElementById("terminalForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const input = document.getElementById("terminalInput");
+  const command = input.value.trim();
+  if (!command) return;
+  input.value = "";
+  runTerminalCommand(command);
+});
+document.querySelectorAll(".fill-command").forEach((button) => {
+  button.addEventListener("click", () => fillTerminal(button.dataset.command));
+});
 
 applyTheme(storedTheme() || "night");
+switchTab("guided");
+renderGuide();
+appendTerminalEntry("welcome", {
+  status: "info",
+  returncode: 0,
+  durationMs: 0,
+  output:
+    "Start by typing a real kubectl command. Suggested commands fill the prompt, but you choose when to run them.",
+  hint: "Try: kubectl -n incident-lab get pods",
+});
 fetchStatus();

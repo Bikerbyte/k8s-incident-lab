@@ -5,6 +5,7 @@ import json
 import mimetypes
 import os
 import re
+import shlex
 import socket
 import subprocess
 import threading
@@ -29,6 +30,8 @@ class Action:
     label: str
     description: str
     command: list[str]
+    group: str = "control"
+    icon: str = "•"
     dangerous: bool = False
 
 
@@ -38,66 +41,81 @@ ACTIONS: dict[str, Action] = {
         label="Deploy App",
         description="Apply the Podinfo manifests and wait for rollout.",
         command=["bash", "scripts/deploy-app.sh"],
+        icon="⇧",
     ),
     "install-monitoring": Action(
         slug="install-monitoring",
         label="Install Monitoring",
         description="Install Prometheus, Grafana, Loki, and Promtail.",
         command=["bash", "scripts/install-monitoring.sh"],
+        icon="▦",
     ),
     "open-local-access": Action(
         slug="open-local-access",
         label="Open Local Access",
         description="Start Grafana, Prometheus, and Podinfo port-forwards.",
         command=["bash", "scripts/port-forward.sh"],
+        icon="↗",
     ),
     "stop-local-access": Action(
         slug="stop-local-access",
         label="Stop Local Access",
         description="Stop Grafana, Prometheus, and Podinfo port-forwards.",
         command=["bash", "scripts/stop-port-forward.sh"],
+        icon="■",
     ),
     "check-lab-status": Action(
         slug="check-lab-status",
         label="Check Lab Status",
         description="Print tool, cluster, workload, and localhost access status.",
         command=["bash", "scripts/status.sh"],
+        icon="✓",
     ),
     "show-alerts": Action(
         slug="show-alerts",
         label="Show Alerts",
         description="Query Prometheus for current incident lab alert states.",
         command=["bash", "scripts/show-alerts.sh"],
+        icon="!",
     ),
     "trigger-readiness-failure": Action(
         slug="trigger-readiness-failure",
         label="Trigger Readiness Failure",
         description="Patch Podinfo so a new pod stays Running but Not Ready.",
         command=["bash", "scripts/trigger-readiness-failure.sh"],
+        group="scenario",
+        icon="!",
     ),
     "restore-readiness": Action(
         slug="restore-readiness",
         label="Restore Readiness",
         description="Restore the Podinfo readiness probe and wait for recovery.",
         command=["bash", "scripts/restore-readiness.sh"],
+        group="scenario",
+        icon="↺",
     ),
     "generate-errors": Action(
         slug="generate-errors",
         label="Generate Errors",
         description="Send repeated HTTP 500 requests to Podinfo.",
         command=["bash", "scripts/generate-errors.sh"],
+        group="scenario",
+        icon="500",
     ),
     "trigger-self-healing": Action(
         slug="trigger-self-healing",
         label="Trigger Self-Healing",
         description="Delete one Podinfo pod and let the Deployment recreate it.",
         command=["bash", "scripts/trigger-pod-self-healing.sh"],
+        group="scenario",
+        icon="↻",
     ),
     "cleanup": Action(
         slug="cleanup",
         label="Cleanup Lab",
         description="Remove app and monitoring resources from the cluster.",
         command=["bash", "scripts/cleanup.sh"],
+        icon="×",
         dangerous=True,
     ),
     "capture-grafana": Action(
@@ -105,7 +123,61 @@ ACTIONS: dict[str, Action] = {
         label="Capture Grafana",
         description="Capture the current Grafana dashboard to docs/screenshots/grafana-normal.png.",
         command=["bash", "scripts/capture-grafana-screenshot.sh", "docs/screenshots/grafana-normal.png"],
+        icon="□",
     ),
+}
+
+
+TERMINAL_TIMEOUT_SECONDS = 30
+MAX_TERMINAL_COMMAND_LENGTH = 300
+SAFE_KUBECTL_VERBS = {
+    "api-resources",
+    "api-versions",
+    "cluster-info",
+    "describe",
+    "get",
+    "logs",
+    "rollout",
+    "top",
+    "version",
+}
+BLOCKED_KUBECTL_VERBS = {
+    "annotate",
+    "apply",
+    "attach",
+    "cordon",
+    "cp",
+    "create",
+    "debug",
+    "delete",
+    "drain",
+    "edit",
+    "exec",
+    "expose",
+    "label",
+    "patch",
+    "port-forward",
+    "proxy",
+    "replace",
+    "run",
+    "scale",
+    "set",
+    "taint",
+    "uncordon",
+}
+SAFE_ROLLOUT_SUBCOMMANDS = {"history", "status"}
+BLOCKED_KUBECTL_FLAGS = {"-f", "--filename", "--follow", "--watch", "--watch-only", "-w"}
+SAFE_HELM_VERBS = {"get", "history", "list", "status"}
+SAFE_CURL_HOSTS = {"localhost", "127.0.0.1"}
+SAFE_CURL_PORTS = {3000, 9090, 9898}
+SAFE_CURL_FLAGS = {"-s", "-S", "-i", "-I", "-L", "-v", "--fail", "--head", "--include", "--location", "--show-error", "--silent", "--verbose"}
+SAFE_LAB_SCRIPTS = {
+    "scripts/status.sh",
+    "scripts/show-alerts.sh",
+    "scripts/trigger-readiness-failure.sh",
+    "scripts/restore-readiness.sh",
+    "scripts/trigger-pod-self-healing.sh",
+    "scripts/generate-errors.sh",
 }
 
 
@@ -142,6 +214,148 @@ def command_output(command: list[str], timeout: int = 20) -> str:
     return (result.stdout + result.stderr).strip()
 
 
+def command_policy_message(argv: list[str]) -> str:
+    printable = " ".join(argv)
+    return (
+        f"Blocked command: {printable}\n\n"
+        "This guided terminal only runs lab-safe commands: read-only kubectl, read-only helm, "
+        "localhost curl checks, and selected incident lab scripts."
+    )
+
+
+def normalize_script_path(token: str) -> str:
+    if token.startswith("./"):
+        token = token[2:]
+    return token
+
+
+def validate_kubectl(argv: list[str]) -> tuple[bool, str]:
+    lowered = [arg.lower() for arg in argv[1:]]
+    blocked = sorted(set(lowered) & BLOCKED_KUBECTL_VERBS)
+    if blocked:
+        return False, f"`kubectl {blocked[0]}` is intentionally blocked in the guided terminal."
+    blocked_flags = sorted(set(lowered) & BLOCKED_KUBECTL_FLAGS)
+    if blocked_flags:
+        return False, f"`{blocked_flags[0]}` is blocked so terminal commands finish predictably."
+
+    verbs = [arg for arg in lowered if not arg.startswith("-")]
+    verb = next((arg for arg in verbs if arg in SAFE_KUBECTL_VERBS), "")
+    if not verb:
+        return False, "Use a read-only kubectl command such as get, describe, logs, or rollout status."
+    if verb == "rollout":
+        rollout_index = verbs.index("rollout")
+        subcommand = verbs[rollout_index + 1] if rollout_index + 1 < len(verbs) else ""
+        if subcommand not in SAFE_ROLLOUT_SUBCOMMANDS:
+            return False, "Only `kubectl rollout status` and `kubectl rollout history` are allowed here."
+    return True, ""
+
+
+def validate_helm(argv: list[str]) -> tuple[bool, str]:
+    verb = next((arg.lower() for arg in argv[1:] if not arg.startswith("-")), "")
+    if verb not in SAFE_HELM_VERBS:
+        return False, "Use a read-only helm command such as list, status, history, or get."
+    return True, ""
+
+
+def validate_curl(argv: list[str]) -> tuple[bool, str]:
+    urls = [arg for arg in argv[1:] if arg.startswith(("http://", "https://"))]
+    if not urls:
+        return False, "curl is allowed only for explicit localhost lab URLs."
+    for arg in argv[1:]:
+        if arg in urls:
+            continue
+        if arg not in SAFE_CURL_FLAGS:
+            return False, "curl is limited to simple localhost checks without file output or custom payloads."
+    for raw_url in urls:
+        parsed = urllib.parse.urlparse(raw_url)
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        if parsed.hostname not in SAFE_CURL_HOSTS or port not in SAFE_CURL_PORTS:
+            return False, "curl is limited to localhost Grafana, Prometheus, and Podinfo ports."
+    return True, ""
+
+
+def validate_terminal_command(command: str) -> tuple[bool, list[str], str]:
+    if len(command) > MAX_TERMINAL_COMMAND_LENGTH:
+        return False, [], "Command is too long for the guided terminal."
+    try:
+        argv = shlex.split(command)
+    except ValueError as exc:
+        return False, [], f"Could not parse command: {exc}"
+    if not argv:
+        return False, [], "Type a command first."
+
+    if argv[0] == "kubectl":
+        allowed, reason = validate_kubectl(argv)
+        return allowed, argv, reason
+    if argv[0] == "helm":
+        allowed, reason = validate_helm(argv)
+        return allowed, argv, reason
+    if argv[0] == "curl":
+        allowed, reason = validate_curl(argv)
+        return allowed, argv, reason
+
+    script_token = normalize_script_path(argv[0])
+    if script_token in SAFE_LAB_SCRIPTS and len(argv) == 1:
+        return True, ["bash", script_token], ""
+    if argv[0] == "bash" and len(argv) == 2:
+        script_token = normalize_script_path(argv[1])
+        if script_token in SAFE_LAB_SCRIPTS:
+            return True, ["bash", script_token], ""
+
+    return False, argv, "That command is outside this lab terminal's allowlist."
+
+
+def terminal_command_hint(command: str, output: str, returncode: int) -> str:
+    lowered = command.lower()
+    if returncode != 0:
+        return "Read the error first, then check whether the cluster is reachable and the namespace exists."
+    if "get pods" in lowered:
+        return "Compare READY with STATUS. A pod can be Running but still not Ready."
+    if "describe pod" in lowered:
+        return "Look at Events and probe failures. They usually explain why readiness is failing."
+    if "get endpoints" in lowered:
+        return "If endpoints are missing, the Service has no ready pod to route traffic to."
+    if "logs" in lowered:
+        return "Logs show application behavior; readiness failures can still be Kubernetes probe configuration issues."
+    if "restore-readiness" in lowered:
+        return "After restoring, validate with rollout status, pods, and endpoints."
+    if "rollout status" in lowered:
+        return "A successful rollout is not enough by itself; confirm pods and endpoints are healthy."
+    return "Use the output to decide the next observation before changing anything."
+
+
+def execute_terminal_command(command: str) -> dict[str, Any]:
+    cleaned = command.strip()
+    started = time.time()
+    allowed, argv, reason = validate_terminal_command(cleaned)
+    if not allowed:
+        output = reason if not argv else command_policy_message(argv)
+        return {
+            "command": cleaned,
+            "status": "blocked",
+            "returncode": 126,
+            "output": output,
+            "hint": reason,
+            "startedAt": int(started),
+            "finishedAt": int(time.time()),
+            "durationMs": 0,
+        }
+
+    result = run_command(argv, timeout=TERMINAL_TIMEOUT_SECONDS)
+    output = (result.stdout + result.stderr).strip()
+    finished = time.time()
+    return {
+        "command": cleaned,
+        "status": "succeeded" if result.returncode == 0 else "failed",
+        "returncode": result.returncode,
+        "output": output or "(command completed with no output)",
+        "hint": terminal_command_hint(cleaned, output, result.returncode),
+        "startedAt": int(started),
+        "finishedAt": int(finished),
+        "durationMs": int((finished - started) * 1000),
+    }
+
+
 def bool_tool(name: str) -> bool:
     return bool(command_output(["bash", "-lc", f"command -v {name} || true"]))
 
@@ -152,7 +366,7 @@ def is_port_listening(port: int) -> bool:
 
 
 def minikube_status() -> dict[str, Any]:
-    raw = command_output(["bash", "-lc", "minikube status || true"])
+    raw = command_output(["bash", "-lc", "minikube status || true"], timeout=5)
     data: dict[str, str] = {}
     for line in raw.splitlines():
         if ":" not in line:
@@ -165,8 +379,15 @@ def minikube_status() -> dict[str, Any]:
     return {"raw": raw, **data}
 
 
-def cluster_reachable() -> bool:
-    return run_command(["kubectl", "cluster-info"], timeout=15).returncode == 0
+def minikube_is_stopped(status: dict[str, Any]) -> bool:
+    minikube_fields = ["host", "kubelet", "apiserver", "kubeconfig"]
+    return any(status.get(field) == "Stopped" for field in minikube_fields)
+
+
+def cluster_reachable(minikube: dict[str, Any] | None = None) -> bool:
+    if minikube and minikube_is_stopped(minikube):
+        return False
+    return run_command(["kubectl", "cluster-info"], timeout=5).returncode == 0
 
 
 def kubectl_json(args: list[str], timeout: int = 20) -> dict[str, Any] | None:
@@ -262,7 +483,8 @@ def screenshot_entries() -> list[dict[str, str]]:
 
 
 def status_payload() -> dict[str, Any]:
-    reachable = cluster_reachable()
+    minikube = minikube_status()
+    reachable = cluster_reachable(minikube)
     return {
         "generatedAt": int(time.time()),
         "tools": {
@@ -271,7 +493,7 @@ def status_payload() -> dict[str, Any]:
             "minikube": bool_tool("minikube"),
             "curl": bool_tool("curl"),
         },
-        "minikube": minikube_status(),
+        "minikube": minikube,
         "cluster": {
             "reachable": reachable,
             "nodes": summarize_nodes() if reachable else [],
@@ -301,6 +523,8 @@ def status_payload() -> dict[str, Any]:
                 "label": action.label,
                 "description": action.description,
                 "command": " ".join(action.command),
+                "group": action.group,
+                "icon": action.icon,
                 "dangerous": action.dangerous,
             }
             for action in ACTIONS.values()
@@ -565,6 +789,18 @@ class ConsoleHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/api/terminal":
+            try:
+                content_length = int(self.headers.get("Content-Length", "0"))
+                raw_body = self.rfile.read(content_length).decode("utf-8")
+                payload = json.loads(raw_body or "{}")
+            except (UnicodeDecodeError, json.JSONDecodeError, ValueError):
+                self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
+                return
+            command = str(payload.get("command", ""))
+            self.send_json(execute_terminal_command(command))
+            return
+
         if not parsed.path.startswith("/api/actions/"):
             self.send_error(HTTPStatus.NOT_FOUND, "Not found")
             return
