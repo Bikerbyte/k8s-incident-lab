@@ -8,10 +8,12 @@ This project is an SRE-style playground. The goal is not to write a large applic
 
 - Kubernetes workload deployment with `Deployment`, `Service`, and `Namespace`
 - Metrics collection with Prometheus
+- Prometheus alert rules for incident signals
 - Dashboards with Grafana
 - Centralized logs with Loki and Promtail
 - Repeatable incident scenarios
 - Runbooks for troubleshooting and validation
+- Browser-based lab console for local operation
 
 ## Stack
 
@@ -40,6 +42,7 @@ k8s-incident-lab/
 +-- runbooks/
 +-- scenarios/
 +-- scripts/
++-- console/
 ```
 
 ## Prerequisites
@@ -69,6 +72,32 @@ Install monitoring and logging:
 scripts/install-monitoring.sh
 ```
 
+Check the lab status:
+
+```bash
+scripts/status.sh
+```
+
+Run the local lab console:
+
+```bash
+scripts/run-console.sh
+```
+
+Then open the printed local URL in your browser.
+
+Common shortcuts are also available through `make`:
+
+```bash
+make deploy
+make monitoring
+make port-forward
+make stop-port-forward
+make console
+make status
+make alerts
+```
+
 On Windows PowerShell, use the matching `.ps1` scripts:
 
 ```powershell
@@ -79,10 +108,22 @@ On Windows PowerShell, use the matching `.ps1` scripts:
 Open Grafana:
 
 ```bash
-kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 3000:80
+scripts/port-forward.sh
 ```
 
-Then open `http://localhost:3000`.
+Then open:
+
+```text
+Grafana:    http://localhost:3000
+Prometheus: http://localhost:9090
+Podinfo:    http://localhost:9898
+```
+
+Stop local port-forwards:
+
+```bash
+scripts/stop-port-forward.sh
+```
 
 Default login:
 
@@ -96,12 +137,32 @@ Open the dashboard:
 Incident Lab / Podinfo Overview
 ```
 
+Grafana usage guide:
+
+- [docs/grafana-guide.md](docs/grafana-guide.md)
+
+Troubleshooting:
+
+- [docs/troubleshooting.md](docs/troubleshooting.md)
+
+Alerts:
+
+- [docs/alerts.md](docs/alerts.md)
+
+Demo flow:
+
+- [docs/demo-flow.md](docs/demo-flow.md)
+
+Screenshot guide:
+
+- [docs/screenshots/README.md](docs/screenshots/README.md)
+
 ## Validate the App
 
 Port-forward Podinfo:
 
 ```bash
-kubectl -n incident-lab port-forward svc/podinfo 9898:9898
+scripts/port-forward.sh
 ```
 
 Test it:
@@ -153,6 +214,18 @@ Runbook: [runbooks/pod-self-healing.md](runbooks/pod-self-healing.md)
 
 ## Useful Commands
 
+Validate the repository:
+
+```bash
+scripts/validate.sh
+```
+
+Show Prometheus alerts:
+
+```bash
+scripts/show-alerts.sh
+```
+
 Check app state:
 
 ```bash
@@ -184,18 +257,21 @@ scripts/cleanup.sh
 
 - [x] Demo app manifests
 - [x] Prometheus / Grafana Helm values
+- [x] Prometheus alert rules
 - [x] Loki / Promtail Helm values
 - [x] Grafana dashboard ConfigMap
+- [x] Local lab console
 - [x] Readiness failure scenario
 - [x] High error rate scenario
 - [x] Pod self-healing scenario
 - [x] Runbooks
 - [x] Helper scripts
-- [ ] Screenshots from a real cluster run
+- [x] Screenshots from a real cluster run
 
 ## Future Improvements
 
 - Alertmanager rules
+- Notification routing
 - Ingress and TLS
 - GitHub Actions validation
 - More detailed Grafana dashboard panels

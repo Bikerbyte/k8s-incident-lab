@@ -20,6 +20,7 @@ Grafana:
 
 - Dashboard: `Incident Lab / Podinfo Overview`
 - Loki query: `{namespace="incident-lab"}`
+- Prometheus alerts: `PodinfoUnavailableReplicas`, `PodinfoUnreadyPods`
 
 ## Possible Cause
 
@@ -32,8 +33,9 @@ Grafana:
 1. Check pod readiness with `kubectl get pods`.
 2. Inspect events with `kubectl describe pod`.
 3. Confirm whether the Service has ready endpoints.
-4. Check app logs for health-check failures.
-5. Compare the Deployment readiness probe path with the app's real endpoint.
+4. Check Prometheus alerts at `http://localhost:9090/alerts`.
+5. Check app logs for health-check failures.
+6. Compare the Deployment readiness probe path with the app's real endpoint.
 
 ## Resolution
 
