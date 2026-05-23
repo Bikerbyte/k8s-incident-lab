@@ -4,6 +4,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.docx
+TASKS.md
 
 # Local environment and secrets
 .env
