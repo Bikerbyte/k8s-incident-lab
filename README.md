@@ -1,29 +1,30 @@
 # K8s Incident Lab
 
-A lightweight Kubernetes incident lab built on K3s for practicing deployment, observability, troubleshooting, and runbook-driven incident response.
+This project simulates production-grade incident response on Kubernetes. It demonstrates observability-driven debugging, runbook-driven recovery, and reproducible failure injection — the core daily work of an SRE.
 
-This project is an SRE-style playground. The goal is not to write a large application. The goal is to deploy a small service, observe it, break it in realistic ways, and document how to investigate and recover it.
+Stack: K3s · Podinfo · Prometheus · Grafana · Loki · Promtail · Helm · kube-prometheus-stack.
+
+![Grafana Podinfo Overview](docs/screenshots/grafana-normal.png)
 
 ## What This Demonstrates
 
-- Kubernetes workload deployment with `Deployment`, `Service`, and `Namespace`
-- Metrics collection with Prometheus
-- Prometheus alert rules for incident signals
-- Dashboards with Grafana
-- Centralized logs with Loki and Promtail
-- Repeatable incident scenarios
-- Runbooks for troubleshooting and validation
-- Browser-based lab console for local operation
+| Capability | What I Built | Why It Matters in Production |
+|---|---|---|
+| Observability stack design | Prometheus + Grafana + Loki + Promtail, deployed via Helm | First-line evidence during any incident |
+| Runbook-driven incident response | 3 reproducible failure scenarios with paired runbooks | Reduces MTTR and shortens on-call ramp-up |
+| Metrics dashboard authoring | 9-panel Grafana dashboard covering replica health, error ratio, request rate, and restarts | Turns abstract failures into visible signals |
+| Alert authoring | 3 PrometheusRule alerts with `for` duration thresholds and runbook links | Separates signal from noise |
+| Self-service operator console | Browser-based console with 12 lab actions and real-time audit log | Lowers barrier for new SRE team members |
+| Cross-platform automation | 7 operations scripted in both bash and PowerShell | Lab runs identically on Linux and Windows |
 
-## Stack
+## Outcomes
 
-- K3s / Kubernetes
-- Podinfo demo app
-- Helm
-- Prometheus via `kube-prometheus-stack`
-- Grafana
-- Loki
-- Promtail
+- Codified 3 incident scenarios (readiness failure, high error rate, pod self-healing) into reproducible runbooks, each paired with a trigger and restore script.
+- Built a full observability stack (Prometheus + Grafana + Loki + Promtail) with 15-second metric scrape interval, deployable from a single Helm values file.
+- Authored a 9-panel Grafana dashboard covering replica health, error ratio, request rate, and pod restarts — the key signals needed to diagnose each scenario.
+- Wrote 3 PrometheusRule alerts with `for` duration thresholds and `runbook_url` annotations, reducing mean-time-to-detect from manual inspection.
+- Built a 12-action browser console with real-time terminal output and per-job audit log, making the lab self-service for new team members.
+- Maintained bash + PowerShell parity across all 7 core operations, making the lab reproducible on both Linux and Windows.
 
 ## Repository Structure
 
@@ -270,9 +271,9 @@ scripts/cleanup.sh
 
 ## Future Improvements
 
-- Alertmanager rules
-- Notification routing
+- Alertmanager rules and notification routing
 - Ingress and TLS
-- GitHub Actions validation
-- More detailed Grafana dashboard panels
-- Optional custom API service for richer failure modes
+- GitHub Actions CI validation
+- OOMKilled scenario
+- Service discovery broken scenario
+- SLO dashboard (availability SLI + error budget)
