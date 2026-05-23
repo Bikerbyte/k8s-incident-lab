@@ -11,18 +11,18 @@ Stack: K3s · Podinfo · Prometheus · Grafana · Loki · Promtail · Helm · ku
 | Capability | What I Built | Why It Matters in Production |
 |---|---|---|
 | Observability stack design | Prometheus + Grafana + Loki + Promtail, deployed via Helm | First-line evidence during any incident |
-| Runbook-driven incident response | 3 reproducible failure scenarios with paired runbooks | Reduces MTTR and shortens on-call ramp-up |
+| Runbook-driven incident response | 5 reproducible failure scenarios with paired runbooks | Reduces MTTR and shortens on-call ramp-up |
 | Metrics dashboard authoring | 9-panel Grafana dashboard covering replica health, error ratio, request rate, and restarts | Turns abstract failures into visible signals |
-| Alert authoring | 3 PrometheusRule alerts with `for` duration thresholds and runbook links | Separates signal from noise |
+| Alert authoring | 5 PrometheusRule alerts with `for` duration thresholds and runbook links | Separates signal from noise |
 | Self-service operator console | Browser-based console with 12 lab actions and real-time audit log | Lowers barrier for new SRE team members |
 | Cross-platform automation | 7 operations scripted in both bash and PowerShell | Lab runs identically on Linux and Windows |
 
 ## Outcomes
 
-- Codified 3 incident scenarios (readiness failure, high error rate, pod self-healing) into reproducible runbooks, each paired with a trigger and restore script.
+- Codified 5 incident scenarios (readiness failure, high error rate, pod self-healing, OOMKilled, service discovery broken) into reproducible runbooks, each paired with trigger and restore scripts.
 - Built a full observability stack (Prometheus + Grafana + Loki + Promtail) with 15-second metric scrape interval, deployable from a single Helm values file.
 - Authored a 9-panel Grafana dashboard covering replica health, error ratio, request rate, and pod restarts — the key signals needed to diagnose each scenario.
-- Wrote 3 PrometheusRule alerts with `for` duration thresholds and `runbook_url` annotations, reducing mean-time-to-detect from manual inspection.
+- Wrote 5 PrometheusRule alerts with `for` duration thresholds and `runbook_url` annotations, reducing mean-time-to-detect from manual inspection.
 - Built a 12-action browser console with real-time terminal output and per-job audit log, making the lab self-service for new team members.
 - Maintained bash + PowerShell parity across all 7 core operations, making the lab reproducible on both Linux and Windows.
 
@@ -212,6 +212,37 @@ kubectl -n incident-lab get pods -w
 ```
 
 Runbook: [runbooks/pod-self-healing.md](runbooks/pod-self-healing.md)
+
+### 4. OOMKilled
+
+```bash
+scripts/trigger-oom-killed.sh
+kubectl -n incident-lab get pods -w
+kubectl -n incident-lab describe pod -l app.kubernetes.io/name=podinfo
+```
+
+Restore:
+
+```bash
+scripts/restore-oom-killed.sh
+```
+
+Runbook: [runbooks/oom-killed.md](runbooks/oom-killed.md)
+
+### 5. Service Discovery Broken
+
+```bash
+scripts/trigger-service-discovery-broken.sh
+kubectl -n incident-lab get endpoints podinfo
+```
+
+Restore:
+
+```bash
+scripts/restore-service-discovery-broken.sh
+```
+
+Runbook: [runbooks/service-discovery-broken.md](runbooks/service-discovery-broken.md)
 
 ## Useful Commands
 
