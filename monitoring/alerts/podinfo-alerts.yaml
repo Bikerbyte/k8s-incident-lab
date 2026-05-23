@@ -48,3 +48,34 @@ spec:
             summary: Podinfo has pods that are not ready.
             description: At least one pod in the incident-lab namespace has reported Not Ready for at least 1 minute.
             runbook_url: /runbooks/readiness-failure.md
+
+        - alert: PodinfoServiceHasNoEndpoints
+          expr: |
+            kube_endpoint_address_available{
+              namespace="incident-lab",
+              endpoint="podinfo"
+            } == 0
+          for: 1m
+          labels:
+            severity: critical
+            scenario: service-discovery-broken
+          annotations:
+            summary: Podinfo Service has no available endpoints.
+            description: The podinfo Service has had zero available endpoints for at least 1 minute. Traffic cannot reach any pods despite them being healthy.
+            runbook_url: /runbooks/service-discovery-broken.md
+
+        - alert: PodinfoFrequentOOMKills
+          expr: |
+            kube_pod_container_status_last_terminated_reason{
+              namespace="incident-lab",
+              container="podinfo",
+              reason="OOMKilled"
+            } == 1
+          for: 0m
+          labels:
+            severity: warning
+            scenario: oom-killed
+          annotations:
+            summary: Podinfo container was OOMKilled.
+            description: The podinfo container's last termination was due to an OOMKill. Check memory limits and usage with kubectl top and container_memory_working_set_bytes.
+            runbook_url: /runbooks/oom-killed.md
