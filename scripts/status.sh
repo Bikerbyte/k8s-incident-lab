@@ -100,6 +100,8 @@ Trigger scenarios:
   scripts/trigger-readiness-failure.sh
   scripts/generate-errors.sh
   scripts/trigger-pod-self-healing.sh
+  scripts/trigger-oom-killed.sh
+  scripts/trigger-service-discovery-broken.sh
 EOF
 
 if [ "${CLUSTER_OK}" -eq 0 ]; then

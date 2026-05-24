@@ -83,6 +83,16 @@ const playgroundLinks = [
     href: "/runbooks/pod-self-healing.md",
   },
   {
+    title: "OOMKilled Runbook",
+    detail: "Diagnose memory pressure and container restarts.",
+    href: "/runbooks/oom-killed.md",
+  },
+  {
+    title: "Service Discovery Runbook",
+    detail: "Trace healthy pods that receive no Service traffic.",
+    href: "/runbooks/service-discovery-broken.md",
+  },
+  {
     title: "Architecture Notes",
     detail: "Review the lab components and observability flow.",
     href: "/docs/architecture.md",

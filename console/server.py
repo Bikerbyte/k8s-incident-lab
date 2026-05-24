@@ -110,6 +110,38 @@ ACTIONS: dict[str, Action] = {
         group="scenario",
         icon="↻",
     ),
+    "trigger-oom-killed": Action(
+        slug="trigger-oom-killed",
+        label="Trigger OOMKilled",
+        description="Lower Podinfo memory limits until the container is OOMKilled.",
+        command=["bash", "scripts/trigger-oom-killed.sh"],
+        group="scenario",
+        icon="OOM",
+    ),
+    "restore-oom-killed": Action(
+        slug="restore-oom-killed",
+        label="Restore OOMKilled",
+        description="Restore Podinfo memory limits and wait for recovery.",
+        command=["bash", "scripts/restore-oom-killed.sh"],
+        group="scenario",
+        icon="↺",
+    ),
+    "trigger-service-discovery-broken": Action(
+        slug="trigger-service-discovery-broken",
+        label="Break Service Discovery",
+        description="Patch the Service selector so healthy pods receive no traffic.",
+        command=["bash", "scripts/trigger-service-discovery-broken.sh"],
+        group="scenario",
+        icon="SVC",
+    ),
+    "restore-service-discovery-broken": Action(
+        slug="restore-service-discovery-broken",
+        label="Restore Service Discovery",
+        description="Restore the Podinfo Service selector and verify endpoints.",
+        command=["bash", "scripts/restore-service-discovery-broken.sh"],
+        group="scenario",
+        icon="↺",
+    ),
     "cleanup": Action(
         slug="cleanup",
         label="Cleanup Lab",
@@ -213,6 +245,10 @@ SAFE_LAB_SCRIPTS = {
     "scripts/restore-readiness.sh",
     "scripts/trigger-pod-self-healing.sh",
     "scripts/generate-errors.sh",
+    "scripts/trigger-oom-killed.sh",
+    "scripts/restore-oom-killed.sh",
+    "scripts/trigger-service-discovery-broken.sh",
+    "scripts/restore-service-discovery-broken.sh",
 }
 
 

@@ -1,6 +1,6 @@
 # Demo Flow
 
-Use this sequence when presenting the lab or practicing the scenarios end to end.
+Use this sequence when presenting the lab or practicing the scenarios end to end. The goal is to demonstrate Kubernetes troubleshooting, not just to run helper scripts.
 
 ## 1. Start the Lab
 
@@ -56,7 +56,7 @@ The normal state should show ready replicas, no unready pods, and a low or zero 
 
 ## 3. Scenario: Pod Self-Healing
 
-Run:
+Create the failure:
 
 ```bash
 scripts/trigger-pod-self-healing.sh
@@ -73,12 +73,17 @@ Evidence:
 
 ```bash
 kubectl -n incident-lab get pods -w
+kubectl -n incident-lab get rs
 kubectl -n incident-lab get events --sort-by=.lastTimestamp
 ```
 
+Kubernetes point:
+
+The Deployment controller owns desired state. A deleted Pod is replaced because the current state no longer matches the replica count.
+
 ## 4. Scenario: Readiness Failure
 
-Run:
+Create the failure:
 
 ```bash
 scripts/trigger-readiness-failure.sh
@@ -94,9 +99,14 @@ Evidence:
 
 ```bash
 kubectl -n incident-lab get pods
+kubectl -n incident-lab describe pod -l app.kubernetes.io/name=podinfo
 kubectl -n incident-lab get endpoints podinfo
 kubectl -n incident-lab get events --sort-by=.lastTimestamp
 ```
+
+Kubernetes point:
+
+A Pod can be Running but not Ready. Services route only to ready Endpoints.
 
 Restore:
 
@@ -106,7 +116,7 @@ scripts/restore-readiness.sh
 
 ## 5. Scenario: High Error Rate
 
-Run:
+Create the failure:
 
 ```bash
 scripts/generate-errors.sh
@@ -120,12 +130,83 @@ Narrative:
 
 Evidence:
 
+- `kubectl -n incident-lab get pods`
+- `kubectl -n incident-lab logs deploy/podinfo --tail=100`
 - Grafana `Error Ratio`
 - Grafana `Request Rate`
 - Loki query: `{namespace="incident-lab"} |= "500"`
 - Prometheus alert: `PodinfoHighErrorRate`
 
-## 6. Wrap Up
+Kubernetes point:
+
+Healthy Pods do not guarantee healthy user experience. Application metrics and logs prove failures that Kubernetes readiness does not catch.
+
+## 6. Scenario: OOMKilled
+
+Create the failure:
+
+```bash
+scripts/trigger-oom-killed.sh
+```
+
+Narrative:
+
+- Podinfo gets an unrealistically low memory limit.
+- The container is killed by the kernel when it exceeds the limit.
+- Kubernetes restarts the container and records the last termination reason.
+
+Evidence:
+
+```bash
+kubectl -n incident-lab get pods -w
+kubectl -n incident-lab describe pod -l app.kubernetes.io/name=podinfo
+kubectl -n incident-lab get deploy podinfo -o jsonpath='{.spec.template.spec.containers[0].resources}'
+```
+
+Kubernetes point:
+
+OOMKilled is a resource limit failure. Exit code 137, last state, restart count, and memory limits should be read together.
+
+Restore:
+
+```bash
+scripts/restore-oom-killed.sh
+```
+
+## 7. Scenario: Service Discovery Broken
+
+Create the failure:
+
+```bash
+scripts/trigger-service-discovery-broken.sh
+```
+
+Narrative:
+
+- Pods are healthy and Ready.
+- The Service selector no longer matches Pod labels.
+- The Service has no Endpoints, so traffic cannot reach the Pods.
+
+Evidence:
+
+```bash
+kubectl -n incident-lab get pods --show-labels
+kubectl -n incident-lab describe svc podinfo
+kubectl -n incident-lab get endpoints podinfo
+curl http://localhost:9898/
+```
+
+Kubernetes point:
+
+Services route through label-selected Endpoints. Selector drift can break traffic without breaking Pods.
+
+Restore:
+
+```bash
+scripts/restore-service-discovery-broken.sh
+```
+
+## 8. Wrap Up
 
 Run:
 
@@ -145,3 +226,5 @@ scripts/cleanup.sh
 - Use Kubernetes events for readiness failures because the app may not log useful probe errors.
 - Use logs and error ratio for high error rate because Kubernetes readiness can remain healthy.
 - Point out that self-healing is reconciliation, not magic: the Deployment owns desired state.
+- Use OOMKilled to connect resource limits with runtime behavior.
+- Use Service Discovery Broken to show how selectors, labels, and Endpoints form the traffic path.
