@@ -22,9 +22,8 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y shellcheck
           pip install --quiet yamllint
-          curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x kubectl
-          sudo mv kubectl /usr/local/bin/
+          curl -sL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz \
+            | tar xz -C /usr/local/bin kubeconform
 
       - name: Shell syntax (bash -n)
         run: |
@@ -55,17 +54,13 @@ jobs:
             monitoring/servicemonitors/ \
             monitoring/helm-values/
 
-      - name: Kubernetes manifests (dry-run client)
+      - name: Kubernetes manifests (kubeconform)
         run: |
-          # --validate=false is required in CI because kubectl tries to download
-          # the OpenAPI schema from the API server even in --dry-run=client mode.
-          # Without a running cluster, that request fails.
-          for f in \
-            app/manifests/namespace.yaml \
-            app/manifests/podinfo.yaml \
-            monitoring/dashboards/podinfo-overview-dashboard.yaml \
-            monitoring/alerts/podinfo-alerts.yaml \
-            monitoring/servicemonitors/podinfo-servicemonitor.yaml; do
-            kubectl apply --dry-run=client --validate=false -f "$f"
-            echo "ok  $f"
-          done
+          # kubeconform validates manifests against offline Kubernetes schemas.
+          # -ignore-missing-schemas skips CRDs (PrometheusRule, ServiceMonitor)
+          # that have no entry in the public schema registry.
+          kubeconform -strict -ignore-missing-schemas \
+            app/manifests/ \
+            monitoring/dashboards/ \
+            monitoring/alerts/ \
+            monitoring/servicemonitors/
