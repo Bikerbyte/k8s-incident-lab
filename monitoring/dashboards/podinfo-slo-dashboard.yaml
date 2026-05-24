@@ -1,0 +1,219 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: podinfo-slo-dashboard
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  podinfo-slo.json: |-
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "graphTooltip": 0,
+      "links": [],
+      "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Proportion of successful (non-5xx) requests over the selected window. SLO target is 99.5%.",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0.9,
+              "max": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red",    "value": null },
+                  { "color": "yellow", "value": 0.99 },
+                  { "color": "green",  "value": 0.995 }
+                ]
+              },
+              "mappings": []
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+          "id": 1,
+          "options": {
+            "reduceOptions": {
+              "calcs": ["lastNotNull"]
+            },
+            "orientation": "auto",
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "targets": [
+            {
+              "expr": "1 - (\n  sum(rate(http_requests_total{namespace=\"incident-lab\",status=~\"5..\"}[30d]))\n  /\n  clamp_min(sum(rate(http_requests_total{namespace=\"incident-lab\"}[30d])), 0.001)\n)",
+              "legendFormat": "Availability SLI",
+              "refId": "A"
+            }
+          ],
+          "title": "Availability SLI (30d)",
+          "type": "gauge"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Error budget remaining. SLO = 99.5% means 0.5% of requests may fail. Shows how much of that allowance is left.",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "min": 0,
+              "max": 1,
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red",    "value": null },
+                  { "color": "yellow", "value": 0.25 },
+                  { "color": "green",  "value": 0.5 }
+                ]
+              },
+              "mappings": []
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+          "id": 2,
+          "options": {
+            "reduceOptions": {
+              "calcs": ["lastNotNull"]
+            },
+            "orientation": "auto",
+            "showThresholdLabels": false,
+            "showThresholdMarkers": true
+          },
+          "targets": [
+            {
+              "expr": "(\n  0.005 - (\n    sum(rate(http_requests_total{namespace=\"incident-lab\",status=~\"5..\"}[30d]))\n    /\n    clamp_min(sum(rate(http_requests_total{namespace=\"incident-lab\"}[30d])), 0.001)\n  )\n) / 0.005",
+              "legendFormat": "Error Budget Remaining",
+              "refId": "A"
+            }
+          ],
+          "title": "Error Budget Remaining (30d, SLO=99.5%)",
+          "type": "gauge"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Short window (1h) burn rate vs long window (6h). If short burn >> 1, you are consuming the error budget faster than the SLO allows.",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green",  "value": null },
+                  { "color": "yellow", "value": 5 },
+                  { "color": "red",    "value": 14.4 }
+                ]
+              },
+              "custom": {
+                "lineWidth": 2
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+          "id": 3,
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "expr": "(\n  sum(rate(http_requests_total{namespace=\"incident-lab\",status=~\"5..\"}[1h]))\n  /\n  clamp_min(sum(rate(http_requests_total{namespace=\"incident-lab\"}[1h])), 0.001)\n) / 0.005",
+              "legendFormat": "1h burn rate",
+              "refId": "A"
+            },
+            {
+              "expr": "(\n  sum(rate(http_requests_total{namespace=\"incident-lab\",status=~\"5..\"}[6h]))\n  /\n  clamp_min(sum(rate(http_requests_total{namespace=\"incident-lab\"}[6h])), 0.001)\n) / 0.005",
+              "legendFormat": "6h burn rate",
+              "refId": "B"
+            }
+          ],
+          "title": "Burn Rate (1h vs 6h)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "30-day trend of availability SLI. Shows whether the service is trending toward or away from the 99.5% target.",
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percentunit",
+              "custom": {
+                "lineWidth": 2
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red",   "value": null },
+                  { "color": "green", "value": 0.995 }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+          "id": 4,
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "expr": "1 - (\n  sum(rate(http_requests_total{namespace=\"incident-lab\",status=~\"5..\"}[30d]))\n  /\n  clamp_min(sum(rate(http_requests_total{namespace=\"incident-lab\"}[30d])), 0.001)\n)",
+              "legendFormat": "Availability SLI (30d rolling)",
+              "refId": "A"
+            }
+          ],
+          "thresholds": {
+            "mode": "line",
+            "steps": [
+              { "color": "transparent", "value": null },
+              { "color": "red", "value": 0.995 }
+            ]
+          },
+          "title": "Availability SLI Trend (30d rolling)",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "1m",
+      "schemaVersion": 38,
+      "style": "dark",
+      "tags": ["incident-lab", "slo"],
+      "time": {
+        "from": "now-30d",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "",
+      "title": "Incident Lab / SLO",
+      "uid": "incident-lab-slo",
+      "version": 1
+    }
