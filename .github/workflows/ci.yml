@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y shellcheck
+          pip install --quiet yamllint
+          curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x kubectl
+          sudo mv kubectl /usr/local/bin/
+
+      - name: Shell syntax (bash -n)
+        run: |
+          for f in scripts/*.sh; do
+            bash -n "$f" && echo "ok  $f"
+          done
+
+      - name: Shell lint (shellcheck)
+        run: |
+          shellcheck --severity=warning scripts/*.sh
+
+      - name: Python syntax
+        run: |
+          python3 -m py_compile console/server.py
+          echo "ok  console/server.py"
+
+      - name: JavaScript syntax
+        run: |
+          node --check console/static/app.js
+          echo "ok  console/static/app.js"
+
+      - name: YAML lint
+        run: |
+          yamllint -c .yamllint.yml \
+            app/manifests/ \
+            monitoring/dashboards/ \
+            monitoring/alerts/ \
+            monitoring/servicemonitors/ \
+            monitoring/helm-values/
+
+      - name: Kubernetes manifests (dry-run client)
+        run: |
+          # Standard resources — full client-side validation
+          kubectl apply --dry-run=client -f app/manifests/namespace.yaml
+          kubectl apply --dry-run=client -f app/manifests/podinfo.yaml
+          kubectl apply --dry-run=client -f monitoring/dashboards/podinfo-overview-dashboard.yaml
+          echo "ok  standard manifests"
+
+          # CRD resources (PrometheusRule, ServiceMonitor) — skip schema validation
+          # because CRD schemas are not bundled with kubectl
+          kubectl apply --dry-run=client --validate=false -f monitoring/alerts/podinfo-alerts.yaml
+          kubectl apply --dry-run=client --validate=false -f monitoring/servicemonitors/podinfo-servicemonitor.yaml
+          echo "ok  CRD manifests"

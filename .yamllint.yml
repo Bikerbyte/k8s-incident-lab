@@ -1,0 +1,24 @@
+extends: default
+
+rules:
+  # Dashboard JSON embedded in ConfigMap has long lines
+  line-length:
+    max: 300
+    level: warning
+
+  # Helm values files use true/false as plain scalars
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false
+    level: warning
+
+  # No required document-start marker (---)
+  document-start: disable
+
+  # Indented comments in embedded JSON are fine
+  comments-indentation: disable
+
+  # Allow bracket notation common in PromQL inside YAML strings
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 0

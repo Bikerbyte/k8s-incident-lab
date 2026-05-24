@@ -1,5 +1,7 @@
 # K8s Incident Lab
 
+[![CI](https://github.com/Bikerbyte/k8s-incident-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/Bikerbyte/k8s-incident-lab/actions/workflows/ci.yml)
+
 This project is a hands-on Kubernetes troubleshooting lab. It uses repeatable failure injection to demonstrate how to diagnose Pods, Deployments, Services, Endpoints, readiness probes, resource limits, metrics, logs, and alerts.
 
 The scripts make the failures reproducible. The value of the lab is the manual investigation path: observe the cluster, isolate the failure mode, explain the root cause, and recover the workload.
