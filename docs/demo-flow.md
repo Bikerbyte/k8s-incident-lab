@@ -7,15 +7,15 @@ Use this sequence when presenting the lab or practicing the scenarios end to end
 Confirm your Kubernetes environment is running, then deploy the app and observability stack:
 
 ```bash
-scripts/deploy-app.sh
-scripts/install-monitoring.sh
-scripts/port-forward.sh
+scripts/lab.sh deploy
+scripts/lab.sh monitoring
+scripts/lab.sh access
 ```
 
 Open the console:
 
 ```bash
-scripts/run-console.sh
+scripts/lab.sh console
 ```
 
 Browser entry points:
@@ -43,7 +43,7 @@ In the console, confirm:
 Check Prometheus alerts:
 
 ```bash
-scripts/show-alerts.sh
+scripts/lab.sh alerts
 ```
 
 In Grafana, open:
@@ -59,7 +59,7 @@ The normal state should show ready replicas, no unready pods, and a low or zero 
 Create the failure:
 
 ```bash
-scripts/trigger-pod-self-healing.sh
+scripts/lab.sh scenario self-healing trigger
 ```
 
 Narrative:
@@ -86,7 +86,7 @@ The Deployment controller owns desired state. A deleted Pod is replaced because 
 Create the failure:
 
 ```bash
-scripts/trigger-readiness-failure.sh
+scripts/lab.sh scenario readiness trigger
 ```
 
 Narrative:
@@ -111,7 +111,7 @@ A Pod can be Running but not Ready. Services route only to ready Endpoints.
 Restore:
 
 ```bash
-scripts/restore-readiness.sh
+scripts/lab.sh scenario readiness restore
 ```
 
 ## 5. Scenario: High Error Rate
@@ -119,7 +119,7 @@ scripts/restore-readiness.sh
 Create the failure:
 
 ```bash
-scripts/generate-errors.sh
+scripts/lab.sh scenario errors trigger
 ```
 
 Narrative:
@@ -146,7 +146,7 @@ Healthy Pods do not guarantee healthy user experience. Application metrics and l
 Create the failure:
 
 ```bash
-scripts/trigger-oom-killed.sh
+scripts/lab.sh scenario oom trigger
 ```
 
 Narrative:
@@ -170,7 +170,7 @@ OOMKilled is a resource limit failure. Exit code 137, last state, restart count,
 Restore:
 
 ```bash
-scripts/restore-oom-killed.sh
+scripts/lab.sh scenario oom restore
 ```
 
 ## 7. Scenario: Service Discovery Broken
@@ -178,7 +178,7 @@ scripts/restore-oom-killed.sh
 Create the failure:
 
 ```bash
-scripts/trigger-service-discovery-broken.sh
+scripts/lab.sh scenario service-discovery trigger
 ```
 
 Narrative:
@@ -203,7 +203,7 @@ Services route through label-selected Endpoints. Selector drift can break traffi
 Restore:
 
 ```bash
-scripts/restore-service-discovery-broken.sh
+scripts/lab.sh scenario service-discovery restore
 ```
 
 ## 8. Wrap Up
@@ -211,13 +211,13 @@ scripts/restore-service-discovery-broken.sh
 Run:
 
 ```bash
-scripts/status.sh
+scripts/lab.sh status
 ```
 
 Optional cleanup:
 
 ```bash
-scripts/cleanup.sh
+scripts/lab.sh cleanup
 ```
 
 ## Presenter Notes

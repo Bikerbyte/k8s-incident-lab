@@ -15,13 +15,13 @@ Pods are Running and Ready, but the application is returning errors.
 Check the lab:
 
 ```bash
-scripts/status.sh
+scripts/lab.sh status
 ```
 
 Open Grafana and Podinfo:
 
 ```bash
-scripts/port-forward.sh
+scripts/lab.sh access
 ```
 
 In Grafana, open:
@@ -35,7 +35,7 @@ Incident Lab / Podinfo Overview
 Run a short burst of failing requests:
 
 ```bash
-scripts/generate-errors.sh
+scripts/lab.sh scenario errors trigger
 ```
 
 The script opens a temporary port-forward to Podinfo and calls:
@@ -100,7 +100,7 @@ After the error traffic has run for about 1 minute, `PodinfoHighErrorRate` shoul
 You can also run:
 
 ```bash
-scripts/show-alerts.sh
+scripts/lab.sh alerts
 ```
 
 ## Restore

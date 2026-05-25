@@ -50,7 +50,7 @@ const guideSteps = [
     phase: "Act",
     title: "Restore readiness",
     goal: "Run the lab recovery script, then wait for rollout health.",
-    commands: ["scripts/restore-readiness.sh", "kubectl -n incident-lab rollout status deploy/podinfo"],
+    commands: ["scripts/lab.sh scenario readiness restore", "kubectl -n incident-lab rollout status deploy/podinfo"],
     matchers: ["restore-readiness", "rollout status"],
     coaching: "Recovery is only complete after the Deployment rolls out and ready endpoints return.",
     nextCheck: "Next check: final validation",
@@ -519,6 +519,14 @@ function commandMatchesStep(command, step) {
 
 function advanceGuideForCommand(command, payload) {
   const step = currentGuideStep();
+  if (payload.status === "confirmation_required") {
+    setText("terminalStatus", "Command needs confirmation before it runs.");
+    return;
+  }
+  if (payload.status === "canceled") {
+    setText("terminalStatus", "Command canceled before execution.");
+    return;
+  }
   if (payload.status === "blocked") {
     setText("terminalStatus", "Command blocked by the lab allowlist.");
     return;
@@ -540,6 +548,16 @@ function advanceGuideForCommand(command, payload) {
   setText("terminalStatus", "Command completed. The guide is still waiting for the current check.");
 }
 
+async function postTerminalCommand(command, confirmed = false) {
+  const response = await fetch("/api/terminal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ command, confirmed }),
+  });
+  if (!response.ok) throw new Error(`Terminal request failed: ${response.status}`);
+  return response.json();
+}
+
 async function runTerminalCommand(command) {
   if (state.terminalBusy) return;
   state.terminalBusy = true;
@@ -547,13 +565,22 @@ async function runTerminalCommand(command) {
   runButton.disabled = true;
   setText("terminalStatus", "Running command...");
   try {
-    const response = await fetch("/api/terminal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ command }),
-    });
-    if (!response.ok) throw new Error(`Terminal request failed: ${response.status}`);
-    const payload = await response.json();
+    let payload = await postTerminalCommand(command);
+    if (payload.status === "confirmation_required") {
+      const shouldRun = window.confirm(`${payload.output}\n\n${command}`);
+      if (!shouldRun) {
+        payload = {
+          status: "canceled",
+          returncode: 130,
+          durationMs: 0,
+          output: "Command canceled before execution.",
+          hint: "No cluster changes were made.",
+        };
+      } else {
+        setText("terminalStatus", "Running confirmed command...");
+        payload = await postTerminalCommand(command, true);
+      }
+    }
     appendTerminalEntry(command, payload);
     advanceGuideForCommand(command, payload);
     fetchStatus();

@@ -18,13 +18,13 @@ actual replicas returns to 2
 Check the lab:
 
 ```bash
-scripts/status.sh
+scripts/lab.sh status
 ```
 
 Open Grafana:
 
 ```bash
-scripts/port-forward.sh
+scripts/lab.sh access
 ```
 
 In Grafana, open:
@@ -36,7 +36,7 @@ Incident Lab / Podinfo Overview
 ## Trigger
 
 ```bash
-scripts/trigger-pod-self-healing.sh
+scripts/lab.sh scenario self-healing trigger
 ```
 
 The script deletes one Podinfo pod.

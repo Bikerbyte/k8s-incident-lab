@@ -91,7 +91,7 @@ In a real incident, fix the source of truth (Helm values, manifest, or ArgoCD co
 In this lab:
 
 ```bash
-scripts/restore-service-discovery-broken.sh
+scripts/lab.sh scenario service-discovery restore
 ```
 
 ## Validation

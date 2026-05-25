@@ -1,28 +1,28 @@
 .PHONY: console deploy monitoring port-forward stop-port-forward status alerts validate cleanup
 
 console:
-	scripts/run-console.sh
+	scripts/lab.sh console
 
 deploy:
-	scripts/deploy-app.sh
+	scripts/lab.sh deploy
 
 monitoring:
-	scripts/install-monitoring.sh
+	scripts/lab.sh monitoring
 
 port-forward:
-	scripts/port-forward.sh
+	scripts/lab.sh access
 
 stop-port-forward:
-	scripts/stop-port-forward.sh
+	scripts/lab.sh stop-access
 
 status:
-	scripts/status.sh
+	scripts/lab.sh status
 
 alerts:
-	scripts/show-alerts.sh
+	scripts/lab.sh alerts
 
 validate:
-	scripts/validate.sh
+	scripts/lab.sh validate
 
 cleanup:
-	scripts/cleanup.sh
+	scripts/lab.sh cleanup

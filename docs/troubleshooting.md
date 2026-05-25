@@ -9,7 +9,7 @@ Start here because `kubectl` needs the Kubernetes API server.
 For a full lab overview, run:
 
 ```bash
-scripts/status.sh
+scripts/lab.sh status
 ```
 
 For only minikube:
@@ -76,13 +76,13 @@ service/kube-prometheus-stack-grafana
 If Podinfo is missing, deploy it:
 
 ```bash
-scripts/deploy-app.sh
+scripts/lab.sh deploy
 ```
 
 If monitoring is missing, install it:
 
 ```bash
-scripts/install-monitoring.sh
+scripts/lab.sh monitoring
 ```
 
 ## 3. Check Port-Forwarding
@@ -98,7 +98,7 @@ ss -ltnp | rg ':(3000|9090|9898)\b'
 If nothing is listening, open Grafana:
 
 ```bash
-scripts/port-forward.sh
+scripts/lab.sh access
 ```
 
 This opens:
@@ -165,7 +165,7 @@ Use this table to decide what to fix.
 | --- | --- | --- |
 | `kubectl` says connection refused | Minikube API server is stopped | `minikube start` |
 | Pods are not listed | App or monitoring is not deployed | Run deploy/install scripts |
-| Pods are `Running` but browser does not open | Port-forward is not running | `scripts/port-forward.sh` |
-| Local ports are stale or confusing | Old port-forward process is still running | `scripts/stop-port-forward.sh`, then `scripts/port-forward.sh` |
+| Pods are `Running` but browser does not open | Port-forward is not running | `scripts/lab.sh access` |
+| Local ports are stale or confusing | Old port-forward process is still running | `scripts/lab.sh stop-access`, then `scripts/lab.sh access` |
 | Grafana opens but dashboard is missing | Dashboard ConfigMap was not applied | `kubectl apply -f monitoring/dashboards/podinfo-overview-dashboard.yaml` |
 | Podinfo returns OK but Grafana has no data | Prometheus may still be scraping or ServiceMonitor is missing | Wait 1 minute, then re-apply monitoring |

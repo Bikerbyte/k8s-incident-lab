@@ -40,49 +40,49 @@ ACTIONS: dict[str, Action] = {
         slug="deploy-app",
         label="Deploy App",
         description="Apply the Podinfo manifests and wait for rollout.",
-        command=["bash", "scripts/deploy-app.sh"],
+        command=["bash", "scripts/lab.sh", "deploy"],
         icon="⇧",
     ),
     "install-monitoring": Action(
         slug="install-monitoring",
         label="Install Monitoring",
         description="Install Prometheus, Grafana, Loki, and Promtail.",
-        command=["bash", "scripts/install-monitoring.sh"],
+        command=["bash", "scripts/lab.sh", "monitoring"],
         icon="▦",
     ),
     "open-local-access": Action(
         slug="open-local-access",
         label="Open Local Access",
         description="Start Grafana, Prometheus, and Podinfo port-forwards.",
-        command=["bash", "scripts/port-forward.sh"],
+        command=["bash", "scripts/lab.sh", "access"],
         icon="↗",
     ),
     "stop-local-access": Action(
         slug="stop-local-access",
         label="Stop Local Access",
         description="Stop Grafana, Prometheus, and Podinfo port-forwards.",
-        command=["bash", "scripts/stop-port-forward.sh"],
+        command=["bash", "scripts/lab.sh", "stop-access"],
         icon="■",
     ),
     "check-lab-status": Action(
         slug="check-lab-status",
         label="Check Lab Status",
         description="Print tool, cluster, workload, and localhost access status.",
-        command=["bash", "scripts/status.sh"],
+        command=["bash", "scripts/lab.sh", "status"],
         icon="✓",
     ),
     "show-alerts": Action(
         slug="show-alerts",
         label="Show Alerts",
         description="Query Prometheus for current incident lab alert states.",
-        command=["bash", "scripts/show-alerts.sh"],
+        command=["bash", "scripts/lab.sh", "alerts"],
         icon="!",
     ),
     "trigger-readiness-failure": Action(
         slug="trigger-readiness-failure",
         label="Trigger Readiness Failure",
         description="Patch Podinfo so a new pod stays Running but Not Ready.",
-        command=["bash", "scripts/trigger-readiness-failure.sh"],
+        command=["bash", "scripts/lab.sh", "scenario", "readiness", "trigger"],
         group="scenario",
         icon="!",
     ),
@@ -90,7 +90,7 @@ ACTIONS: dict[str, Action] = {
         slug="restore-readiness",
         label="Restore Readiness",
         description="Restore the Podinfo readiness probe and wait for recovery.",
-        command=["bash", "scripts/restore-readiness.sh"],
+        command=["bash", "scripts/lab.sh", "scenario", "readiness", "restore"],
         group="scenario",
         icon="↺",
     ),
@@ -98,7 +98,7 @@ ACTIONS: dict[str, Action] = {
         slug="generate-errors",
         label="Generate Errors",
         description="Send repeated HTTP 500 requests to Podinfo.",
-        command=["bash", "scripts/generate-errors.sh"],
+        command=["bash", "scripts/lab.sh", "scenario", "errors", "trigger"],
         group="scenario",
         icon="500",
     ),
@@ -106,7 +106,7 @@ ACTIONS: dict[str, Action] = {
         slug="trigger-self-healing",
         label="Trigger Self-Healing",
         description="Delete one Podinfo pod and let the Deployment recreate it.",
-        command=["bash", "scripts/trigger-pod-self-healing.sh"],
+        command=["bash", "scripts/lab.sh", "scenario", "self-healing", "trigger"],
         group="scenario",
         icon="↻",
     ),
@@ -114,7 +114,7 @@ ACTIONS: dict[str, Action] = {
         slug="trigger-oom-killed",
         label="Trigger OOMKilled",
         description="Lower Podinfo memory limits until the container is OOMKilled.",
-        command=["bash", "scripts/trigger-oom-killed.sh"],
+        command=["bash", "scripts/lab.sh", "scenario", "oom", "trigger"],
         group="scenario",
         icon="OOM",
     ),
@@ -122,7 +122,7 @@ ACTIONS: dict[str, Action] = {
         slug="restore-oom-killed",
         label="Restore OOMKilled",
         description="Restore Podinfo memory limits and wait for recovery.",
-        command=["bash", "scripts/restore-oom-killed.sh"],
+        command=["bash", "scripts/lab.sh", "scenario", "oom", "restore"],
         group="scenario",
         icon="↺",
     ),
@@ -130,7 +130,7 @@ ACTIONS: dict[str, Action] = {
         slug="trigger-service-discovery-broken",
         label="Break Service Discovery",
         description="Patch the Service selector so healthy pods receive no traffic.",
-        command=["bash", "scripts/trigger-service-discovery-broken.sh"],
+        command=["bash", "scripts/lab.sh", "scenario", "service-discovery", "trigger"],
         group="scenario",
         icon="SVC",
     ),
@@ -138,7 +138,7 @@ ACTIONS: dict[str, Action] = {
         slug="restore-service-discovery-broken",
         label="Restore Service Discovery",
         description="Restore the Podinfo Service selector and verify endpoints.",
-        command=["bash", "scripts/restore-service-discovery-broken.sh"],
+        command=["bash", "scripts/lab.sh", "scenario", "service-discovery", "restore"],
         group="scenario",
         icon="↺",
     ),
@@ -146,7 +146,7 @@ ACTIONS: dict[str, Action] = {
         slug="cleanup",
         label="Cleanup Lab",
         description="Remove app and monitoring resources from the cluster.",
-        command=["bash", "scripts/cleanup.sh"],
+        command=["bash", "scripts/lab.sh", "cleanup"],
         icon="×",
         dangerous=True,
     ),
@@ -154,7 +154,7 @@ ACTIONS: dict[str, Action] = {
         slug="capture-grafana",
         label="Capture Grafana",
         description="Capture the current Grafana dashboard to docs/screenshots/grafana-normal.png.",
-        command=["bash", "scripts/capture-grafana-screenshot.sh", "docs/screenshots/grafana-normal.png"],
+        command=["bash", "scripts/lab.sh", "screenshot", "docs/screenshots/grafana-normal.png"],
         icon="□",
     ),
 }
@@ -166,8 +166,10 @@ LAB_NAMESPACE = "incident-lab"
 READ_ONLY_KUBECTL_VERBS = {
     "api-resources",
     "api-versions",
+    "auth",
     "cluster-info",
     "describe",
+    "explain",
     "get",
     "logs",
     "rollout",
@@ -186,7 +188,7 @@ MUTATING_KUBECTL_VERBS = {
     "scale",
     "set",
 }
-BLOCKED_KUBECTL_VERBS = {
+CONFIRM_KUBECTL_VERBS = MUTATING_KUBECTL_VERBS | {
     "apply",
     "attach",
     "cordon",
@@ -201,18 +203,11 @@ BLOCKED_KUBECTL_VERBS = {
     "taint",
     "uncordon",
 }
+CONFIRM_KUBECTL_COMMANDS = {"config"}
 READ_ONLY_ROLLOUT_SUBCOMMANDS = {"history", "status"}
 MUTATING_ROLLOUT_SUBCOMMANDS = {"restart", "undo"}
-BLOCKED_KUBECTL_FLAGS = {
-    "-A",
-    "-f",
-    "-w",
-    "--all-namespaces",
-    "--filename",
-    "--follow",
-    "--watch",
-    "--watch-only",
-}
+HELP_FLAGS = {"-h", "--help", "help"}
+CONFIRM_HELM_VERBS = {"delete", "install", "rollback", "test", "uninstall", "upgrade"}
 MUTABLE_RESOURCE_KINDS = {
     "cm",
     "configmap",
@@ -236,9 +231,10 @@ MUTABLE_RESOURCE_KINDS = {
 }
 SAFE_HELM_VERBS = {"get", "history", "list", "status"}
 SAFE_CURL_HOSTS = {"localhost", "127.0.0.1"}
-SAFE_CURL_PORTS = {3000, 9090, 9898}
+SAFE_CURL_PORTS = {3000, 3001, 9090, 9091, 9898}
 SAFE_CURL_FLAGS = {"-s", "-S", "-i", "-I", "-L", "-v", "--fail", "--head", "--include", "--location", "--show-error", "--silent", "--verbose"}
 SAFE_LAB_SCRIPTS = {
+    "scripts/lab.sh",
     "scripts/status.sh",
     "scripts/show-alerts.sh",
     "scripts/trigger-readiness-failure.sh",
@@ -249,6 +245,16 @@ SAFE_LAB_SCRIPTS = {
     "scripts/restore-oom-killed.sh",
     "scripts/trigger-service-discovery-broken.sh",
     "scripts/restore-service-discovery-broken.sh",
+    "scripts/lab/status.sh",
+    "scripts/lab/show-alerts.sh",
+    "scripts/scenarios/trigger-readiness-failure.sh",
+    "scripts/scenarios/restore-readiness.sh",
+    "scripts/scenarios/trigger-pod-self-healing.sh",
+    "scripts/scenarios/generate-errors.sh",
+    "scripts/scenarios/trigger-oom-killed.sh",
+    "scripts/scenarios/restore-oom-killed.sh",
+    "scripts/scenarios/trigger-service-discovery-broken.sh",
+    "scripts/scenarios/restore-service-discovery-broken.sh",
 }
 
 
@@ -289,8 +295,8 @@ def command_policy_message(argv: list[str]) -> str:
     printable = " ".join(argv)
     return (
         f"Blocked command: {printable}\n\n"
-        f"This guided terminal allows kubectl practice inside the {LAB_NAMESPACE} namespace, "
-        "read-only helm, localhost curl checks, and selected incident lab scripts."
+        "This terminal runs kubectl and helm commands directly, asks for confirmation before destructive "
+        "cluster operations, and still limits non-Kubernetes shell access."
     )
 
 
@@ -363,45 +369,56 @@ def kubectl_mutation_resource_allowed(verb: str, positional: list[str]) -> tuple
 
 
 def validate_kubectl(argv: list[str]) -> tuple[bool, str]:
-    lowered = [arg.lower() for arg in argv[1:]]
-    blocked = sorted(set(lowered) & BLOCKED_KUBECTL_VERBS)
-    if blocked:
-        return False, f"`kubectl {blocked[0]}` is intentionally blocked in the guided terminal."
-    blocked_flags = sorted(set(lowered) & BLOCKED_KUBECTL_FLAGS)
-    if blocked_flags:
-        return False, f"`{blocked_flags[0]}` is blocked so terminal commands finish predictably."
-
     namespace, namespace_error = kubectl_namespace(argv)
     if namespace_error:
         return False, namespace_error
-    if namespace and namespace != LAB_NAMESPACE:
-        return False, f"This terminal is locked to the `{LAB_NAMESPACE}` namespace."
+    return True, ""
 
-    verbs = kubectl_positional_args(argv)
-    verb = next((arg for arg in verbs if arg in READ_ONLY_KUBECTL_VERBS | MUTATING_KUBECTL_VERBS), "")
-    if not verb:
-        return False, "Use kubectl get, describe, logs, create, run, expose, delete, patch, scale, set, or rollout."
-
-    if verb == "rollout":
-        rollout_index = verbs.index("rollout")
-        subcommand = verbs[rollout_index + 1] if rollout_index + 1 < len(verbs) else ""
-        if subcommand in READ_ONLY_ROLLOUT_SUBCOMMANDS:
-            return True, ""
-
-    if verb in READ_ONLY_KUBECTL_VERBS:
-        return True, ""
-
-    if namespace != LAB_NAMESPACE:
-        return False, f"Mutation commands must include `-n {LAB_NAMESPACE}`."
-
-    return kubectl_mutation_resource_allowed(verb, verbs)
+def has_help_flag(argv: list[str]) -> bool:
+    return any(arg.lower() in HELP_FLAGS for arg in argv[1:])
 
 
 def validate_helm(argv: list[str]) -> tuple[bool, str]:
-    verb = next((arg.lower() for arg in argv[1:] if not arg.startswith("-")), "")
-    if verb not in SAFE_HELM_VERBS:
-        return False, "Use a read-only helm command such as list, status, history, or get."
     return True, ""
+
+
+def kubectl_confirmation_reason(argv: list[str]) -> str:
+    if has_help_flag(argv):
+        return ""
+    positional = kubectl_positional_args(argv)
+    if not positional:
+        return ""
+    command = positional[0]
+    if command in CONFIRM_KUBECTL_COMMANDS:
+        return "`kubectl config` can change the kubeconfig used by this lab."
+    verb = next((arg for arg in positional if arg in READ_ONLY_KUBECTL_VERBS | CONFIRM_KUBECTL_VERBS), command)
+    if verb == "rollout":
+        rollout_index = positional.index("rollout")
+        subcommand = positional[rollout_index + 1] if rollout_index + 1 < len(positional) else ""
+        if subcommand in READ_ONLY_ROLLOUT_SUBCOMMANDS:
+            return ""
+    if verb in CONFIRM_KUBECTL_VERBS:
+        return f"`kubectl {verb}` can change cluster state or open a live session."
+    return ""
+
+
+def helm_confirmation_reason(argv: list[str]) -> str:
+    if has_help_flag(argv):
+        return ""
+    verb = next((arg.lower() for arg in argv[1:] if not arg.startswith("-")), "")
+    if verb in CONFIRM_HELM_VERBS:
+        return f"`helm {verb}` can change Kubernetes resources."
+    return ""
+
+
+def terminal_confirmation_reason(argv: list[str]) -> str:
+    if not argv:
+        return ""
+    if argv[0] == "kubectl":
+        return kubectl_confirmation_reason(argv)
+    if argv[0] == "helm":
+        return helm_confirmation_reason(argv)
+    return ""
 
 
 def validate_curl(argv: list[str]) -> tuple[bool, str]:
@@ -442,8 +459,14 @@ def validate_terminal_command(command: str) -> tuple[bool, list[str], str]:
         return allowed, argv, reason
 
     script_token = normalize_script_path(argv[0])
+    if script_token == "scripts/lab.sh":
+        return True, ["bash", script_token, *argv[1:]], ""
     if script_token in SAFE_LAB_SCRIPTS and len(argv) == 1:
         return True, ["bash", script_token], ""
+    if argv[0] == "bash" and len(argv) >= 2:
+        script_token = normalize_script_path(argv[1])
+        if script_token == "scripts/lab.sh":
+            return True, ["bash", script_token, *argv[2:]], ""
     if argv[0] == "bash" and len(argv) == 2:
         script_token = normalize_script_path(argv[1])
         if script_token in SAFE_LAB_SCRIPTS:
@@ -452,8 +475,18 @@ def validate_terminal_command(command: str) -> tuple[bool, list[str], str]:
     return False, argv, "That command is outside this lab terminal's allowlist."
 
 
+def is_watch_command(command: str) -> bool:
+    try:
+        argv = shlex.split(command)
+    except ValueError:
+        return False
+    return any(arg in {"-w", "--watch", "--watch-only", "--follow"} for arg in argv)
+
+
 def terminal_command_hint(command: str, output: str, returncode: int) -> str:
     lowered = command.lower()
+    if returncode == 124 and is_watch_command(command):
+        return f"Watch commands stop automatically after {TERMINAL_TIMEOUT_SECONDS} seconds in the browser terminal."
     if returncode != 0:
         return "Read the error first, then check whether the cluster is reachable and the namespace exists."
     if "get pods" in lowered:
@@ -479,7 +512,7 @@ def terminal_command_hint(command: str, output: str, returncode: int) -> str:
     return "Use the output to decide the next observation before changing anything."
 
 
-def execute_terminal_command(command: str) -> dict[str, Any]:
+def execute_terminal_command(command: str, confirmed: bool = False) -> dict[str, Any]:
     cleaned = command.strip()
     started = time.time()
     allowed, argv, reason = validate_terminal_command(cleaned)
@@ -496,12 +529,31 @@ def execute_terminal_command(command: str) -> dict[str, Any]:
             "durationMs": 0,
         }
 
+    confirmation_reason = terminal_confirmation_reason(argv)
+    if confirmation_reason and not confirmed:
+        return {
+            "command": cleaned,
+            "status": "confirmation_required",
+            "returncode": 0,
+            "output": (
+                f"{confirmation_reason}\n\n"
+                "Run this command anyway?"
+            ),
+            "hint": "Confirm only if you intentionally want to run this cluster-changing command.",
+            "startedAt": int(started),
+            "finishedAt": int(time.time()),
+            "durationMs": 0,
+        }
+
     result = run_command(argv, timeout=TERMINAL_TIMEOUT_SECONDS)
     output = (result.stdout + result.stderr).strip()
     finished = time.time()
+    status = "succeeded" if result.returncode == 0 else "failed"
+    if result.returncode == 124 and is_watch_command(cleaned):
+        status = "succeeded"
     return {
         "command": cleaned,
-        "status": "succeeded" if result.returncode == 0 else "failed",
+        "status": status,
         "returncode": result.returncode,
         "output": output or "(command completed with no output)",
         "hint": terminal_command_hint(cleaned, output, result.returncode),
@@ -953,7 +1005,8 @@ class ConsoleHandler(BaseHTTPRequestHandler):
                 self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
                 return
             command = str(payload.get("command", ""))
-            self.send_json(execute_terminal_command(command))
+            confirmed = bool(payload.get("confirmed", False))
+            self.send_json(execute_terminal_command(command, confirmed=confirmed))
             return
 
         if not parsed.path.startswith("/api/actions/"):

@@ -96,7 +96,7 @@ A leak is characterized by unbounded growth over time. A misconfigured limit is 
 In this lab scenario, the trigger set an artificially low limit. Restore it:
 
 ```bash
-scripts/restore-oom-killed.sh
+scripts/lab.sh scenario oom restore
 ```
 
 In a real incident, find the appropriate limit from historical data and update the Deployment manifest:

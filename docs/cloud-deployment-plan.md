@@ -89,7 +89,7 @@ Reasons:
 1. Lowest cost (~$11/month) — acceptable for a portfolio project
 2. Full Kubernetes API — identical to what this lab already uses locally
 3. No additional tooling needed — existing scripts work as-is
-4. Spot interruptions are acceptable for a lab; a simple `scripts/deploy-app.sh` re-run restores state
+4. Spot interruptions are acceptable for a lab; a simple `scripts/lab.sh deploy` re-run restores state
 
 If uptime for live demos becomes important, switch to a Reserved t3.medium (~$21/month) or add a spot interruption handler.
 

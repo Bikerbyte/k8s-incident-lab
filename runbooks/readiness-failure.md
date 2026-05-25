@@ -42,7 +42,7 @@ Grafana:
 Restore the readiness probe path to `/readyz`:
 
 ```bash
-scripts/restore-readiness.sh
+scripts/lab.sh scenario readiness restore
 ```
 
 ## Validation

@@ -15,13 +15,13 @@ Running container != Ready pod != Service endpoint
 Check the lab:
 
 ```bash
-scripts/status.sh
+scripts/lab.sh status
 ```
 
 Open Grafana and Podinfo:
 
 ```bash
-scripts/port-forward.sh
+scripts/lab.sh access
 ```
 
 In Grafana, open:
@@ -33,7 +33,7 @@ Incident Lab / Podinfo Overview
 ## Trigger
 
 ```bash
-scripts/trigger-readiness-failure.sh
+scripts/lab.sh scenario readiness trigger
 ```
 
 The script patches the Podinfo readiness probe from:
@@ -116,13 +116,13 @@ After the rollout has been stuck for about 1 minute, these alerts should move fr
 You can also run:
 
 ```bash
-scripts/show-alerts.sh
+scripts/lab.sh alerts
 ```
 
 ## Restore
 
 ```bash
-scripts/restore-readiness.sh
+scripts/lab.sh scenario readiness restore
 ```
 
 ## Validation

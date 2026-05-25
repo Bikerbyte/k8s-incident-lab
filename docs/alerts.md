@@ -7,7 +7,7 @@ Alertmanager is disabled in this MVP, so these alerts are meant to be observed i
 Open Prometheus:
 
 ```bash
-scripts/port-forward.sh
+scripts/lab.sh access
 ```
 
 Then visit:
@@ -19,7 +19,7 @@ http://localhost:9090/alerts
 You can also query alerts from the terminal:
 
 ```bash
-scripts/show-alerts.sh
+scripts/lab.sh alerts
 ```
 
 ## Alert Rules
@@ -41,23 +41,23 @@ monitoring/alerts/podinfo-alerts.yaml
 High error rate:
 
 ```bash
-scripts/generate-errors.sh
+scripts/lab.sh scenario errors trigger
 ```
 
 Readiness failure:
 
 ```bash
-scripts/trigger-readiness-failure.sh
+scripts/lab.sh scenario readiness trigger
 ```
 
 Restore readiness:
 
 ```bash
-scripts/restore-readiness.sh
+scripts/lab.sh scenario readiness restore
 ```
 
 ## Notes
 
 - Alerts may take 1 to 2 minutes to move from pending to firing because each rule has a `for` duration.
-- If Prometheus shows no rules, re-run `scripts/install-monitoring.sh` or apply `monitoring/alerts/podinfo-alerts.yaml`.
-- If Prometheus is unreachable from your browser, restart local access with `scripts/port-forward.sh`.
+- If Prometheus shows no rules, re-run `scripts/lab.sh monitoring` or apply `monitoring/alerts/podinfo-alerts.yaml`.
+- If Prometheus is unreachable from your browser, restart local access with `scripts/lab.sh access`.

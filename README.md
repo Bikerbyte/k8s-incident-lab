@@ -70,15 +70,15 @@ kubectl get nodes
 Deploy the demo app, monitoring stack, and local access:
 
 ```bash
-scripts/deploy-app.sh
-scripts/install-monitoring.sh
-scripts/port-forward.sh
+scripts/lab.sh deploy
+scripts/lab.sh monitoring
+scripts/lab.sh access
 ```
 
 Run the local lab console:
 
 ```bash
-scripts/run-console.sh
+scripts/lab.sh console
 ```
 
 Then open the printed local URL in your browser.
@@ -86,7 +86,7 @@ Then open the printed local URL in your browser.
 Check the lab status at any time:
 
 ```bash
-scripts/status.sh
+scripts/lab.sh status
 ```
 
 Common shortcuts are also available through `make`:
@@ -104,14 +104,14 @@ make alerts
 On Windows PowerShell, use the matching `.ps1` scripts:
 
 ```powershell
-.\scripts\deploy-app.ps1
-.\scripts\install-monitoring.ps1
+.\scripts\lab.ps1 deploy
+.\scripts\lab.ps1 monitoring
 ```
 
 Open Grafana:
 
 ```bash
-scripts/port-forward.sh
+scripts/lab.sh access
 ```
 
 Then open:
@@ -125,7 +125,7 @@ Podinfo:    http://localhost:9898
 Stop local port-forwards:
 
 ```bash
-scripts/stop-port-forward.sh
+scripts/lab.sh stop-access
 ```
 
 Default login:
@@ -165,7 +165,7 @@ Screenshot guide:
 Port-forward Podinfo:
 
 ```bash
-scripts/port-forward.sh
+scripts/lab.sh access
 ```
 
 Test it:
@@ -185,7 +185,7 @@ Each scenario starts with a script only to create a consistent failure. The inve
 Failure injection:
 
 ```bash
-scripts/trigger-readiness-failure.sh
+scripts/lab.sh scenario readiness trigger
 ```
 
 Manual investigation:
@@ -208,7 +208,7 @@ Readiness controls traffic eligibility. Liveness controls container restart beha
 Recovery:
 
 ```bash
-scripts/restore-readiness.sh
+scripts/lab.sh scenario readiness restore
 kubectl -n incident-lab rollout status deploy/podinfo
 kubectl -n incident-lab get endpoints podinfo
 ```
@@ -222,7 +222,7 @@ Runbook: [runbooks/readiness-failure.md](runbooks/readiness-failure.md)
 Failure injection:
 
 ```bash
-scripts/generate-errors.sh
+scripts/lab.sh scenario errors trigger
 ```
 
 Manual investigation:
@@ -230,7 +230,7 @@ Manual investigation:
 ```bash
 kubectl -n incident-lab get pods
 kubectl -n incident-lab logs deploy/podinfo --tail=100
-scripts/show-alerts.sh
+scripts/lab.sh alerts
 ```
 
 Grafana/Loki evidence:
@@ -255,7 +255,7 @@ Runbook: [runbooks/high-error-rate.md](runbooks/high-error-rate.md)
 Failure injection:
 
 ```bash
-scripts/trigger-pod-self-healing.sh
+scripts/lab.sh scenario self-healing trigger
 ```
 
 Manual investigation:
@@ -281,7 +281,7 @@ Runbook: [runbooks/pod-self-healing.md](runbooks/pod-self-healing.md)
 Failure injection:
 
 ```bash
-scripts/trigger-oom-killed.sh
+scripts/lab.sh scenario oom trigger
 ```
 
 Manual investigation:
@@ -290,7 +290,7 @@ Manual investigation:
 kubectl -n incident-lab get pods -w
 kubectl -n incident-lab describe pod -l app.kubernetes.io/name=podinfo
 kubectl -n incident-lab get deploy podinfo -o jsonpath='{.spec.template.spec.containers[0].resources}'
-scripts/show-alerts.sh
+scripts/lab.sh alerts
 ```
 
 Root cause:
@@ -304,7 +304,7 @@ Exit code 137, restart count, container last state, and memory limits together e
 Recovery:
 
 ```bash
-scripts/restore-oom-killed.sh
+scripts/lab.sh scenario oom restore
 kubectl -n incident-lab rollout status deploy/podinfo
 ```
 
@@ -315,7 +315,7 @@ Runbook: [runbooks/oom-killed.md](runbooks/oom-killed.md)
 Failure injection:
 
 ```bash
-scripts/trigger-service-discovery-broken.sh
+scripts/lab.sh scenario service-discovery trigger
 ```
 
 Manual investigation:
@@ -338,7 +338,7 @@ Services route to Endpoints selected by labels. A label/selector mismatch can br
 Recovery:
 
 ```bash
-scripts/restore-service-discovery-broken.sh
+scripts/lab.sh scenario service-discovery restore
 kubectl -n incident-lab get endpoints podinfo
 ```
 
@@ -349,13 +349,13 @@ Runbook: [runbooks/service-discovery-broken.md](runbooks/service-discovery-broke
 Validate the repository:
 
 ```bash
-scripts/validate.sh
+scripts/lab.sh validate
 ```
 
 Show Prometheus alerts:
 
 ```bash
-scripts/show-alerts.sh
+scripts/lab.sh alerts
 ```
 
 Check app state:
@@ -382,7 +382,7 @@ kubectl -n incident-lab get events --sort-by=.lastTimestamp
 ## Cleanup
 
 ```bash
-scripts/cleanup.sh
+scripts/lab.sh cleanup
 ```
 
 ## MVP Status

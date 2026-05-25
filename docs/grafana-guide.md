@@ -100,7 +100,7 @@ readiness failure 時通常會變成:
 適合用來判斷:
 
 - 服務現在有沒有流量。
-- 跑 `scripts/generate-errors.sh` 之後，流量有沒有上升。
+- 跑 `scripts/lab.sh scenario errors trigger` 之後，流量有沒有上升。
 - 流量是不是突然停止。
 
 背後的 Prometheus query:
@@ -247,7 +247,7 @@ Metrics 告訴你「有問題」，logs 通常幫你看「為什麼」。這個 
 觸發:
 
 ```bash
-scripts/trigger-readiness-failure.sh
+scripts/lab.sh scenario readiness trigger
 ```
 
 Grafana 看:
@@ -266,7 +266,7 @@ kubectl -n incident-lab get endpoints podinfo
 修復:
 
 ```bash
-scripts/restore-readiness.sh
+scripts/lab.sh scenario readiness restore
 ```
 
 ### High Error Rate
@@ -274,7 +274,7 @@ scripts/restore-readiness.sh
 觸發:
 
 ```bash
-scripts/generate-errors.sh
+scripts/lab.sh scenario errors trigger
 ```
 
 Grafana 看:
@@ -301,7 +301,7 @@ Ctrl+C
 觸發:
 
 ```bash
-scripts/trigger-pod-self-healing.sh
+scripts/lab.sh scenario self-healing trigger
 ```
 
 Grafana 看:

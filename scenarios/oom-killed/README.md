@@ -17,13 +17,13 @@ The pod is not crashing — the kernel terminates it because it crossed a hard b
 Check the lab:
 
 ```bash
-scripts/status.sh
+scripts/lab.sh status
 ```
 
 Open Grafana and Podinfo:
 
 ```bash
-scripts/port-forward.sh
+scripts/lab.sh access
 ```
 
 In Grafana, open:
@@ -37,7 +37,7 @@ Note the current **Pod Restarts** value as your baseline.
 ## Trigger
 
 ```bash
-scripts/trigger-oom-killed.sh
+scripts/lab.sh scenario oom trigger
 ```
 
 The script sets the podinfo container memory limit to `15Mi`. Since podinfo's baseline memory use exceeds this, the container will be terminated by the OOM killer shortly after the new pod starts.
@@ -89,13 +89,13 @@ Once the OOMKill occurs, this alert should fire:
 You can also run:
 
 ```bash
-scripts/show-alerts.sh
+scripts/lab.sh alerts
 ```
 
 ## Restore
 
 ```bash
-scripts/restore-oom-killed.sh
+scripts/lab.sh scenario oom restore
 ```
 
 ## Validation

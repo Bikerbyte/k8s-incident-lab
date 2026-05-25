@@ -39,21 +39,21 @@ localhost:9898 -> incident-lab/podinfo:9898
 Use:
 
 ```bash
-scripts/port-forward.sh
-scripts/stop-port-forward.sh
+scripts/lab.sh access
+scripts/lab.sh stop-access
 ```
 
 ## Operational Flow
 
 ```text
-scripts/deploy-app.sh
+scripts/lab.sh deploy
   -> apply namespace and Podinfo manifests
 
-scripts/install-monitoring.sh
+scripts/lab.sh monitoring
   -> install kube-prometheus-stack, Loki, and Promtail
   -> apply ServiceMonitor, Grafana dashboard ConfigMap, and PrometheusRule alerts
 
-scripts/run-console.sh
+scripts/lab.sh console
   -> start the local browser console
   -> expose actions, status, docs, and screenshots
 ```

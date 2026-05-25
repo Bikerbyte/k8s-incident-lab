@@ -17,13 +17,13 @@ The Service is in the cluster and the pods are running and Ready, but the select
 Check the lab:
 
 ```bash
-scripts/status.sh
+scripts/lab.sh status
 ```
 
 Open Grafana and Podinfo:
 
 ```bash
-scripts/port-forward.sh
+scripts/lab.sh access
 ```
 
 Confirm Podinfo responds at `http://localhost:9898`.
@@ -31,7 +31,7 @@ Confirm Podinfo responds at `http://localhost:9898`.
 ## Trigger
 
 ```bash
-scripts/trigger-service-discovery-broken.sh
+scripts/lab.sh scenario service-discovery trigger
 ```
 
 The script patches the podinfo Service selector from:
@@ -98,13 +98,13 @@ After about 1 minute:
 You can also run:
 
 ```bash
-scripts/show-alerts.sh
+scripts/lab.sh alerts
 ```
 
 ## Restore
 
 ```bash
-scripts/restore-service-discovery-broken.sh
+scripts/lab.sh scenario service-discovery restore
 ```
 
 ## Validation
